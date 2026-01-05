@@ -1,4 +1,18 @@
 {
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[astro]": {
+    "editor.defaultFormatter": "astro-build.astro-vscode"
+  },
+  "prettier.endOfLine": "lf",
+  "eslint.enable": true,
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact", "astro"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
   "github.copilot.chat.commitMessageGeneration.instructions": [
     {
       "text": "Only generate commit messages in Conventional Commits format: <type>(<scope>): <description>. Allowed types: feat, fix, docs, style, refactor, perf, test, chore, ci."
