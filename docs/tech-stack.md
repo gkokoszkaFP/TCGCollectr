@@ -8,34 +8,34 @@ A monorepo architecture using TypeScript across the entire stack for rapid MVP d
 
 ## Frontend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **Astro** | 5.x | Static site generation with islands architecture for optimal performance |
-| **React** | 19.x | Interactive UI components (collection management, modals, forms) |
-| **TypeScript** | 5.x | Type safety across frontend and backend |
-| **Tailwind CSS** | 4.x | Utility-first styling with mobile-first responsive design |
-| **Shadcn/ui** | latest | Pre-built accessible components (modals, toasts, forms, skeleton loaders) |
+| Technology       | Version | Purpose                                                                   |
+| ---------------- | ------- | ------------------------------------------------------------------------- |
+| **Astro**        | 5.x     | Static site generation with islands architecture for optimal performance  |
+| **React**        | 19.x    | Interactive UI components (collection management, modals, forms)          |
+| **TypeScript**   | 5.x     | Type safety across frontend and backend                                   |
+| **Tailwind CSS** | 4.x     | Utility-first styling with mobile-first responsive design                 |
+| **Shadcn/ui**    | latest  | Pre-built accessible components (modals, toasts, forms, skeleton loaders) |
 
 ---
 
 ## Backend & Database
 
-| Technology | Purpose |
-|------------|---------|
-| **Supabase PostgreSQL** | Primary database for user collections and cached API data |
-| **Supabase Auth** | Authentication (email/password + magic link) |
-| **Supabase Edge Functions** | Serverless API proxy for pokemontcg.io with 24-hour caching |
+| Technology                      | Purpose                                                                |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| **Supabase PostgreSQL**         | Primary database for user collections and cached API data              |
+| **Supabase Auth**               | Authentication (email/password + magic link)                           |
+| **Supabase Edge Functions**     | Serverless API proxy for pokemontcg.io with 24-hour caching            |
 | **Supabase Row Level Security** | Database-level authorization ensuring users access only their own data |
 
 ---
 
 ## CI/CD & Hosting
 
-| Technology | Purpose |
-|------------|---------|
-| **GitHub Actions** | Automated build, test, and deployment pipeline |
-| **Azure Static Web Apps** | Frontend hosting with global CDN |
-| **Supabase Cloud** | Managed backend infrastructure (database, auth, edge functions) |
+| Technology                | Purpose                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| **GitHub Actions**        | Automated build, test, and deployment pipeline                  |
+| **Azure Static Web Apps** | Frontend hosting with global CDN                                |
+| **Supabase Cloud**        | Managed backend infrastructure (database, auth, edge functions) |
 
 ---
 
@@ -92,6 +92,7 @@ A monorepo architecture using TypeScript across the entire stack for rapid MVP d
 ### Future Migration Path
 
 If business logic complexity grows, the architecture supports adding:
+
 - Azure Functions or Container Apps connecting to Supabase PostgreSQL
 - External Redis cache for high-traffic scenarios
 - Additional microservices as needed
@@ -122,10 +123,10 @@ TCGCollectr/
 
 ## Cost Estimate (MVP)
 
-| Service | Tier | Monthly Cost |
-|---------|------|--------------|
-| Supabase | Free | $0 |
-| Azure Static Web Apps | Free | $0 |
-| **Total** | | **$0** |
+| Service               | Tier | Monthly Cost |
+| --------------------- | ---- | ------------ |
+| Supabase              | Free | $0           |
+| Azure Static Web Apps | Free | $0           |
+| **Total**             |      | **$0**       |
 
-*Free tiers sufficient for MVP. Supabase Pro ($25/mo) recommended when approaching 500MB database or 50K MAU.*
+_Free tiers sufficient for MVP. Supabase Pro ($25/mo) recommended when approaching 500MB database or 50K MAU._
