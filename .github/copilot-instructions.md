@@ -19,11 +19,12 @@ TCGCollectr is a Trading Card Game collection management application built with 
 
 The project uses a multi-file instruction system for better organization and context-specific guidance:
 
-- **[shared.instructions.md](instructions/shared.instructions.md)** - Core project structure, tech stack, key principles
+- **[shared.instructions.md](instructions/shared.instructions.md)** - Core project structure, tech stack, key principles, code quality tools (ESLint, Prettier)
 - **[frontend.instructions.md](instructions/frontend.instructions.md)** - Styling (Tailwind), Accessibility (ARIA)
 - **[astro.instructions.md](instructions/astro.instructions.md)** - Astro-specific patterns, API routes, middleware
 - **[react.instructions.md](instructions/react.instructions.md)** - React hooks, patterns, component structure
 - **[backend.instructions.md](instructions/backend.instructions.md)** - Supabase integration, database migrations, API security
+- **[testing.instructions.md](instructions/testing.instructions.md)** - Unit testing (Jest), E2E testing (Playwright), Page Object Model
 
 ## Quick Reference
 
