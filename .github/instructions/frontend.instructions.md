@@ -9,27 +9,46 @@ applyTo: "**/*.tsx,**/*.jsx,**/*.astro,src/styles/**"
 - Use Astro components (.astro) for static content and layout
 - Implement framework components in React only when interactivity is needed
 
-## Styling with Tailwind
+## TAILWIND
 
 - Use the @layer directive to organize styles into components, utilities, and base layers
+- Implement Just-in-Time (JIT) mode for development efficiency and smaller CSS bundles
 - Use arbitrary values with square brackets (e.g., w-[123px]) for precise one-off designs
+- Leverage the @apply directive in component classes to reuse utility combinations
 - Implement the Tailwind configuration file for customizing theme, plugins, and variants
+- Use component extraction for repeated UI patterns instead of copying utility classes
 - Leverage the theme() function in CSS for accessing Tailwind theme values
 - Implement dark mode with the dark: variant
 - Use responsive variants (sm:, md:, lg:, etc.) for adaptive designs
-- Leverage state variants (hover:, focus-visible:, active:, etc.) for interactive elements
+- Leverage state variants (hover:, focus:, active:, etc.) for interactive elements
 
-## Accessibility (ARIA Best Practices)
+## Guidelines for ACCESSIBILITY
 
-- Use ARIA landmarks to identify regions of the page (main, navigation, search, etc.)
-- Apply appropriate ARIA roles to custom interface elements that lack semantic HTML equivalents
-- Set aria-expanded and aria-controls for expandable content like accordions and dropdowns
-- Use aria-live regions with appropriate politeness settings for dynamic content updates
-- Implement aria-hidden to hide decorative or duplicative content from screen readers
-- Apply aria-label or aria-labelledby for elements without visible text labels
-- Use aria-describedby to associate descriptive text with form inputs or complex elements
-- Implement aria-current for indicating the current item in a set, navigation, or process
-- Avoid redundant ARIA that duplicates the semantics of native HTML elements
+### MOBILE_ACCESSIBILITY
+
+- Ensure touch targets are at least 44 by 44 pixels for comfortable interaction on mobile devices
+- Implement proper viewport configuration to support pinch-to-zoom and prevent scaling issues
+- Design layouts that adapt to both portrait and landscape orientations without loss of content
+- Support both touch and keyboard navigation for hybrid devices with {{input_methods}}
+- Ensure interactive elements have sufficient spacing to prevent accidental activation
+- Test with mobile screen readers like VoiceOver (iOS) and TalkBack (Android)
+- Design forms that work efficiently with on-screen keyboards and autocomplete functionality
+- Implement alternatives to complex gestures that require fine motor control
+- Ensure content is accessible when device orientation is locked for users with fixed devices
+- Provide alternatives to motion-based interactions for users with vestibular disorders
+
+### ACCESSIBILITY_TESTING
+
+- Test keyboard navigation to verify all interactive elements are operable without a mouse
+- Verify screen reader compatibility with NVDA, JAWS, and VoiceOver for {{critical_user_journeys}}
+- Use automated testing tools like Axe, WAVE, or Lighthouse to identify common accessibility issues
+- Check color contrast using tools like Colour Contrast Analyzer for all text and UI components
+- Test with page zoomed to 200% to ensure content remains usable and visible
+- Perform manual accessibility audits using WCAG 2.2 checklist for key user flows
+- Test with voice recognition software like Dragon NaturallySpeaking for voice navigation
+- Validate form inputs have proper labels, instructions, and error handling mechanisms
+- Conduct usability testing with disabled users representing various disability types
+- Implement accessibility unit tests for UI components to prevent regression
 
 ## Anti-patterns
 

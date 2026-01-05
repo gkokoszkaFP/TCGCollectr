@@ -54,6 +54,26 @@ When modifying the directory structure, always update this section.
 - Implement proper error logging and user-friendly error messages
 - Consider using custom error types or error factories for consistent error handling
 
+## Code Quality Tools
+
+### ESLint
+
+- Configure project-specific rules in eslint.config.js to enforce consistent coding standards
+- Use shareable configs like eslint-config-airbnb or eslint-config-standard as a foundation
+- Implement custom rules for project-specific patterns to maintain codebase consistency
+- Configure integration with Prettier to avoid rule conflicts for code formatting
+- Use the --fix flag in CI/CD pipelines to automatically correct fixable issues
+- Implement staged linting with husky and lint-staged to prevent committing non-compliant code
+
+### Prettier
+
+- Define a consistent .prettierrc configuration across all project repositories
+- Configure editor integration to format on save for immediate feedback
+- Use .prettierignore to exclude generated files, build artifacts, and specific patterns
+- Set printWidth based on team preferences (80-120 characters) to improve code readability
+- Configure consistent quote style and semicolon usage to match team conventions
+- Implement CI checks to ensure all committed code adheres to the defined style
+
 ## Shadcn/ui Components
 
 ### Using Installed Components
