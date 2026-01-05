@@ -1,0 +1,16 @@
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Only generate commit messages in Conventional Commits format: <type>(<scope>): <description>. Allowed types: feat, fix, docs, style, refactor, perf, test, chore, ci."
+    },
+    {
+      "text": "Include an optional blank line followed by a body that explains why the change was made and any relevant context."
+    },
+    {
+      "text": "If needed, include footers like BREAKING CHANGE: and references to issues or tasks."
+    },
+    {
+      "text": "Examples: feat(ui): add dark mode toggle, fix(auth): resolve token refresh bug, docs: update contribution guidelines."
+    }
+  ]
+}
