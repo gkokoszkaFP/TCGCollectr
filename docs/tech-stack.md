@@ -24,8 +24,48 @@ A monorepo architecture using TypeScript across the entire stack for rapid MVP d
 | ------------------------------- | ---------------------------------------------------------------------- |
 | **Supabase PostgreSQL**         | Primary database for user collections and cached API data              |
 | **Supabase Auth**               | Authentication (email/password + magic link)                           |
-| **Supabase Edge Functions**     | Serverless API proxy for pokemontcg.io with 24-hour caching            |
+| **Supabase Edge Functions**     | API proxy for pokemontcg.io card details with 24-hour caching          |
 | **Supabase Row Level Security** | Database-level authorization ensuring users access only their own data |
+| **pg_cron**                     | Scheduled jobs for daily CSV imports (4:00 AM UTC)                     |
+| **Zod**                         | Runtime input validation for API routes and form data                  |
+
+---
+
+## Data Sources & Strategy
+
+### Source Responsibilities
+
+| Source            | Provides                                               | Update Method                            |
+| ----------------- | ------------------------------------------------------ | ---------------------------------------- |
+| **tcgcsv.com**    | Card catalog, sets, card numbers, market pricing       | Daily pg_cron import                     |
+| **pokemontcg.io** | Detailed card attributes, abilities, types, image URLs | On-demand via Edge Function (24hr cache) |
+
+### Data Flow
+
+```
+┌──────────────┐     Daily Import      ┌──────────────────┐
+│  tcgcsv.com  │ ───────────────────▶  │    PostgreSQL    │
+│    (CSV)     │      (pg_cron)        │   (cards table)  │
+└──────────────┘                       └──────────────────┘
+                                                │
+                                                │ Card detail view
+                                                ▼
+┌──────────────┐     On-demand         ┌──────────────────┐
+│pokemontcg.io │ ◀─────────────────── │  Edge Function   │
+│    (API)     │      (cached 24hr)    │   (API proxy)    │
+└──────────────┘                       └──────────────────┘
+```
+
+### Image Hosting Strategy
+
+**MVP Approach: Hotlinking**
+
+- Card images served directly from pokemontcg.io CDN
+- URLs stored in database from API responses
+- Zero storage/bandwidth cost
+- Lazy loading for performance
+
+**Future consideration:** Self-hosted caching if reliability issues arise
 
 ---
 
@@ -85,8 +125,9 @@ A monorepo architecture using TypeScript across the entire stack for rapid MVP d
 
 ### Caching Strategy
 
-- Edge Functions cache pokemontcg.io responses in a PostgreSQL table
-- 24-hour TTL as specified in PRD (FR-011)
+- Edge Functions cache pokemontcg.io **card detail responses** in a PostgreSQL table
+- 24-hour TTL for API responses (card attributes, not images)
+- Images hotlinked directly from pokemontcg.io CDN (not cached)
 - Persistent cache survives function restarts
 
 ### Future Migration Path

@@ -46,4 +46,4 @@ The final output should have the following structure:
 5. Any additional notes or explanations about design decisions
 ```
 
-Your response should provide only the final database schema in markdown format, which you will save in the file .docs/db-plan.md without including the thinking process or intermediate steps. Ensure the schema is comprehensive, well-organized, and ready to use as a basis for creating database migrations.
+Your response should provide only the final database schema in markdown format, which you will save in the file docs/db-plan.md without including the thinking process or intermediate steps. Ensure the schema is comprehensive, well-organized, and ready to use as a basis for creating database migrations.

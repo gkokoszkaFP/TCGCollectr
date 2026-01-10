@@ -18,11 +18,9 @@ Storing and checking your TCG cards for personal use is cumbersome – having su
 - Support only for Pokémon cards – with the possibility to expand to other TCGs in the future.
 - Basic information such as:
   - price
-  - price history charts
   - card information
-  - Rarity/value scoring
-- Use of free APIs or CSV files to fetch card information (metadata, price).
-- Price anomaly detection (historical data).
+- Have ability to import price and card info from https://tcgcsv.com/#daily-updates (csv format) to fill database with cards data (basic metadata and price).
+- Use of free APIs to fetch card information (metadata, price) - pokemontcg.io - complementary to csv data dump (for example show more data on specific card).
 - Browsing any Pokémon cards without needing to add them to their collection.
 
 ## What is NOT in the scope of MVP
@@ -35,8 +33,8 @@ Storing and checking your TCG cards for personal use is cumbersome – having su
 
 ## Success criteria
 
-- 90% of users have their cards added to their profile.
-- 50% of users log in once a week and add new cards.
+- 90% of users have cards added to their profile.
+- 75% of users log in once a week and add new cards.
   </project_description>
 
 Analyze the information provided, focusing on aspects relevant to PRD creation. Consider the following questions:

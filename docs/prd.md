@@ -2,507 +2,770 @@
 
 ## 1. Product Overview
 
-TCGCollectr is a web application designed for Trading Card Game (TCG) collectors to manage and track their personal card collections. The Minimum Viable Product (MVP) focuses exclusively on Pokémon cards, with architecture that supports future expansion to other TCGs.
+TCGCollectr is a Trading Card Game collection management application designed for Pokémon TCG collectors who need a simple, comprehensive way to track their card collections, view market prices, and organize their cards.
 
-The application provides a streamlined experience for users to:
+The application provides:
 
-- Search and browse the complete Pokémon card catalog
-- Build and manage a personal collection with quantity and condition tracking
-- View current market prices for their cards
-- See the total estimated value of their collection
+- A browsable catalog of 15,000+ Pokémon cards organized by sets
+- Personal collection management with quantity and condition tracking
+- Up-to-date market pricing from tcgcsv.com with supplementary data from pokemontcg.io
+- Custom list organization for different purposes (e.g., trade binder, for sale)
+- User accounts with email/password authentication
 
-The technical stack consists of:
+The MVP focuses exclusively on Pokémon TCG with an architecture that supports future expansion to other trading card games.
 
-- Backend: .NET on Azure Functions with EF Core and Supabase
-- Frontend: Astro with React and Tailwind CSS, hosted on Azure Static Web Apps
-- Authentication: Supabase (email/password and magic link)
-- Data Source: pokemontcg.io API with JustTCG as fallback
-- Caching: 24-hour server-side cache for API data
+### Tech Stack
 
-The design philosophy prioritizes a mobile-first, responsive interface with support for both light and dark themes.
+| Layer                | Technology                |
+| -------------------- | ------------------------- |
+| Frontend Framework   | Astro 5                   |
+| UI Library           | React 19                  |
+| Language             | TypeScript 5              |
+| Styling              | Tailwind 4                |
+| Components           | Shadcn/ui                 |
+| Backend              | Supabase                  |
+| Authentication       | Supabase Auth             |
+| Database             | PostgreSQL (via Supabase) |
+| Serverless Functions | Supabase Edge Functions   |
+| Scheduling           | pg_cron                   |
+| Primary Data Source  | tcgcsv.com (CSV)          |
+| Supplementary Data   | pokemontcg.io (API)       |
+
+### Data Source Responsibilities
+
+| Source                  | Data Provided                                                            | Update Frequency                     |
+| ----------------------- | ------------------------------------------------------------------------ | ------------------------------------ |
+| **tcgcsv.com (CSV)**    | Card catalog (sets, cards, card numbers), market pricing                 | Daily automated import (4:00 AM UTC) |
+| **pokemontcg.io (API)** | Detailed card attributes (types, abilities, HP, etc.), card artwork URLs | On-demand with 24-hour cache         |
+
+**Data merge strategy:**
+
+- CSV data is the source of truth for card identity and pricing
+- API data supplements with detailed attributes when available
+- API data fetched lazily on card detail view (not during import)
+- When data conflicts, CSV pricing takes precedence; API details supplement
+
+### Image Hosting Strategy
+
+Card images are **hotlinked directly** from pokemontcg.io CDN URLs stored in the database:
+
+- Zero storage and bandwidth cost for MVP
+- Image URLs obtained from pokemontcg.io API responses
+- Placeholder image displayed when URL unavailable (FR-005)
+- Lazy loading implemented for performance
+- Strategy may be revisited post-MVP if reliability issues arise
 
 ## 2. User Problem
 
-Storing and checking TCG cards for personal use is cumbersome. Collectors face several challenges:
+Storing and checking TCG cards for personal use is cumbersome. Collectors struggle with:
 
-- Difficulty tracking which cards they own across multiple sets and expansions
-- No centralized location to view their entire collection at a glance
-- Lack of easy access to current market prices for owned cards
-- No simple way to understand the total value of their collection
-- Overwhelming complexity in existing solutions that offer too many features for casual collectors
+1. Tracking what cards they own across multiple sets and expansions
+2. Knowing the current market value of their collection
+3. Organizing cards for different purposes (personal collection, trades, sales)
+4. Finding comprehensive but not overwhelming information about specific cards
+5. Recording card conditions and professional grades for graded cards
+6. Remembering purchase prices to track investment vs. current value
 
-TCGCollectr solves these problems by providing a focused, easy-to-use application that delivers sufficiently comprehensive but not overwhelming information about cards. Users can quickly add cards to their collection, view essential details, and understand the value of what they own without being burdened by unnecessary complexity.
+TCGCollectr solves these problems by providing a free, easy-to-use platform that combines:
+
+- Comprehensive card database with daily price updates
+- Personal collection tracking with condition and grade recording
+- Custom organization through user-defined lists
+- Clean, accessible interface that presents essential information without overwhelming users
 
 ## 3. Functional Requirements
 
-### 3.1 User Authentication
+### FR-001: Card Catalog
 
-- FR-001: The system shall allow users to register using email and password
-- FR-002: The system shall allow users to register and log in using magic link authentication
-- FR-003: The system shall maintain user sessions securely via Supabase
-- FR-004: The system shall require authentication for all collection management operations
+- Display all Pokémon card sets from imported CSV data
+- Organize cards within sets with card count displayed per set
+- Set list must load in under 1 second
+- Support filtering by rarity, type, and price range
+- Provide paginated card views (20-50 cards per page)
 
-### 3.2 Card Browsing and Search
+### FR-002: Search System
 
-- FR-005: The system shall provide a global search bar accessible to all users (authenticated and unauthenticated)
-- FR-006: The system shall support search with auto-completion for card names
-- FR-007: The system shall provide filters for search results (set, name, card number)
-- FR-008: The system shall display search results with card image, name, set name, and card number
-- FR-009: The system shall fetch card data from pokemontcg.io as the primary source
-- FR-010: The system shall use JustTCG as a fallback data source when the primary API is unavailable
-- FR-011: The system shall cache all API data for 24 hours
+- Search by card name, set name, card number, and Pokémon name
+- Return search results in under 200ms (first 20 cards)
+- Implement debounced search input (300ms delay)
+- Display paginated results with "No results found" for empty searches
 
-### 3.3 Collection Management
+### FR-003: User Collections
 
-- FR-012: The system shall allow authenticated users to add cards to their collection
-- FR-013: The system shall allow users to specify quantity when adding a card
-- FR-014: The system shall allow users to specify condition when adding a card (optional field)
-- FR-015: The system shall allow users to edit quantity and condition of cards in their collection
-- FR-016: The system shall allow users to delete cards from their collection with confirmation
-- FR-017: The system shall display a confirmation modal before deleting any card
+- Allow authenticated users to add/remove cards from their collection
+- Track quantity per card with increment/decrement controls (minimum: 1)
+- Support condition selection from predefined scale (mint, near_mint, excellent, good, played, poor)
+- Optional professional grade entry (PSA/BGS/CGC with values 1-10)
+- Optional purchase price field (USD)
+- Notes field (maximum 500 characters)
+- Display confirmation before removing cards from collection
 
-### 3.4 Collection Display
+### FR-004: Custom Lists
 
-- FR-018: The system shall display the user's collection in a paginated view
-- FR-019: The system shall group cards by set in the collection view
-- FR-020: The system shall sort cards by set name, then by card number within each set
-- FR-021: The system shall display card image, name, set, number, rarity, and current market price for each card
-- FR-022: The system shall calculate and display the total estimated value of the collection
+- Allow up to 10 named lists per user (MVP limit)
+- List names limited to 50 characters
+- Support assigning/unassigning cards to multiple lists
+- Filter collection view by list
+- Deleting a list does not remove cards from collection
+- Display card count per list
 
-### 3.5 User Profile
+### FR-005: Card Details
 
-- FR-023: The system shall provide a profile page for authenticated users
-- FR-024: The system shall display a summary of card counts per set on the profile page
-- FR-025: The system shall display the total collection value prominently on the profile page
+- Display card metadata (name, set, number, rarity, type) from CSV data
+- Show detailed card attributes (types, abilities, HP) from pokemontcg.io API when available
+- Show card artwork via hotlinked pokemontcg.io CDN URLs with lazy loading
+- Display placeholder image when artwork URL unavailable
+- Show market price in USD (from CSV) with "Last updated" timestamp
+- Display "Limited information available" when API data is missing
+- Show contextual actions based on user state (guest vs. authenticated)
 
-### 3.6 User Interface
+### FR-006: User Accounts
 
-- FR-026: The system shall implement a mobile-first, responsive design
-- FR-027: The system shall support both light and dark themes
-- FR-028: The system shall display skeleton loaders during content loading
-- FR-029: The system shall display toast notifications for user actions (add, edit, delete)
-- FR-030: The system shall display appropriate empty states with guidance for new users
-- FR-031: The system shall display a non-intrusive banner when external APIs are unavailable
+- Registration with email and password
+- Email verification required before full access
+- Login with email and password
+- Password reset via email
+- Logout functionality
+- Profile page with account settings
+- Account deletion with clear warning and 30-day soft-delete period
+- Account recovery during soft-delete period by logging in
 
-### 3.7 Error Handling
+### FR-007: Data Import
 
-- FR-032: The system shall gracefully handle API failures without crashing
-- FR-033: The system shall inform users when card data cannot be retrieved
-- FR-034: The backend shall use a service layer to isolate API clients for resilience
+- Automated daily CSV import from tcgcsv.com at 4:00 AM UTC
+- Incremental updates using upsert (not full replace)
+- Import job logging with success/failure counts
+- Error details captured for failed records
+- New sets and cards automatically available after import
+- Manual import trigger for administrators
 
-### 3.8 Legal
+### FR-008: Admin Panel
 
-- FR-035: The system shall provide a Privacy Policy page
-- FR-036: The system shall provide a Terms of Service page
+- View import job history (last 30 days)
+- Display success/failure counts per import job
+- Manual CSV import trigger button
+- Aggregate statistics: total users, total cards in collections
+- Admin-only access enforced via role check
 
 ## 4. Product Boundaries
 
-### 4.1 In Scope (MVP)
+### In Scope (MVP)
 
-- Pokémon card support only
-- Manual card search and entry with auto-completion
-- Basic card information display (name, image, set, number, rarity, price)
-- Personal collection management (add, edit, delete)
-- User authentication via email/password and magic link
-- Collection value calculation
-- Paginated collection view grouped by set
-- Profile page with collection summary
-- Mobile-first responsive design with dark mode
-- 24-hour data caching
-- Basic Privacy Policy and Terms of Service
+- Pokémon TCG card catalog and browsing
+- Multi-faceted search (card name, set name, card number, Pokémon name)
+- User registration and authentication (email/password)
+- Personal collection management with quantity and condition tracking
+- Professional grade recording (PSA, BGS, CGC)
+- Purchase price tracking
+- Custom lists for organization (up to 10 per user)
+- Market price display with timestamps
+- Daily automated data import from tcgcsv.com
+- Supplementary card data from pokemontcg.io API
+- Admin dashboard for import monitoring and statistics
+- Responsive web design
 
-### 4.2 Out of Scope (MVP)
+### Out of Scope (Post-MVP)
 
-- Support for non-Pokémon TCGs (Yu-Gi-Oh!, Magic: The Gathering, etc.)
+- Collection export (CSV/JSON format)
+- "New Cards" section highlighting recent additions
+- Progressive Web App (PWA) offline support
+- Public user profiles
+- Social authentication (Google, Facebook, etc.)
+- Currency selector for non-USD prices
+- Multi-language support
+- Email digest notifications for new sets
+
+### Explicitly Excluded
+
+- OCR card scanning via camera
 - Paid API integrations
-- Price history charts and historical data visualization
-- Price anomaly detection
-- Rarity/value scoring algorithms
-- Advanced card price and trend analysis
-- Camera-based card scanning (OCR)
-- Integration with marketplace websites (eBay, Amazon, TCGplayer direct links)
-- Social features (sharing collections, trading, messaging)
-- Wishlist functionality
-- Import/export of collection data
-- Mobile native applications
-- Formal user feedback mechanism
-- TCGCSV data import
-
-### 4.3 Future Considerations
-
-- Expansion to additional TCGs
-- Price history tracking and charts
-- Price anomaly alerts
-- OCR card scanning
-- Collection sharing and social features
-- Mobile applications
+- Non-Pokémon trading card games
+- Advanced price trend analysis and historical charts
+- Marketplace or selling features
+- Redirect links to external sellers (eBay, Amazon, etc.)
 
 ## 5. User Stories
 
-### Authentication
+### Authentication and Account Management
 
-US-001
-Title: User Registration with Email and Password
-Description: As a new user, I want to register for an account using my email and password so that I can start building my card collection.
+#### US-001: User Registration
+
+ID: US-001
+Title: Register for an Account
+Description: As a new user, I want to register for an account with my email and password so that I can save my card collection.
+
 Acceptance Criteria:
 
-- Given I am on the registration page, when I enter a valid email and password and submit the form, then my account is created and I am logged in
-- Given I am on the registration page, when I enter an email that is already registered, then I see an error message indicating the email is already in use
-- Given I am on the registration page, when I enter an invalid email format, then I see a validation error message
-- Given I am on the registration page, when I enter a password that does not meet minimum requirements, then I see a validation error message
+- Registration form accepts email and password
+- Password meets minimum security requirements (8+ characters)
+- Email verification is sent upon registration
+- User cannot access collection features until email is verified
+- Duplicate email addresses are rejected with clear error message
+- Success message displayed after registration
 
-US-002
-Title: User Registration with Magic Link
-Description: As a new user, I want to register using a magic link sent to my email so that I can create an account without remembering a password.
+---
+
+#### US-002: User Login
+
+ID: US-002
+Title: Log into Account
+Description: As a registered user, I want to log into my account so that I can access my saved collection.
+
 Acceptance Criteria:
 
-- Given I am on the registration page, when I enter a valid email and request a magic link, then I receive an email with a login link
-- Given I received a magic link email, when I click the link, then I am logged in and my account is created if it did not exist
-- Given I received a magic link email, when I click an expired link, then I see an error message and am prompted to request a new link
+- Login form accepts email and password
+- Invalid credentials display appropriate error message
+- Successful login redirects to collection page
+- "Remember me" option persists session
+- Login rate limiting prevents brute force attacks
 
-US-003
-Title: User Login with Email and Password
-Description: As a registered user, I want to log in with my email and password so that I can access my collection.
+---
+
+#### US-003: Password Reset
+
+ID: US-003
+Title: Reset Forgotten Password
+Description: As a user who forgot my password, I want to reset it via email so that I can regain access to my account.
+
 Acceptance Criteria:
 
-- Given I am on the login page, when I enter valid credentials, then I am logged in and redirected to my collection page
-- Given I am on the login page, when I enter incorrect credentials, then I see an error message indicating invalid email or password
-- Given I am logged in, when I navigate to the application, then I remain logged in until I log out or the session expires
+- "Forgot password" link available on login page
+- Password reset email sent within 1 minute
+- Reset link expires after 24 hours
+- New password must meet security requirements
+- Confirmation message after successful reset
 
-US-004
-Title: User Login with Magic Link
-Description: As a registered user, I want to log in using a magic link so that I can access my account without entering a password.
+---
+
+#### US-004: User Logout
+
+ID: US-004
+Title: Log out of Account
+Description: As a logged-in user, I want to log out of my account so that I can secure my session on shared devices.
+
 Acceptance Criteria:
 
-- Given I am on the login page, when I request a magic link for my registered email, then I receive an email with a login link
-- Given I received a magic link, when I click the link within its validity period, then I am logged in and redirected to my collection
-- Given I received a magic link, when I click an expired link, then I see an appropriate error message
+- Logout option accessible from header/navigation
+- Session cleared upon logout
+- User redirected to home page after logout
+- Confirmation that logout was successful
 
-US-005
-Title: User Logout
-Description: As a logged-in user, I want to log out of my account so that I can secure my session.
+---
+
+#### US-005: Delete Account
+
+ID: US-005
+Title: Delete My Account
+Description: As a user, I want to delete my account and all associated data so that I can exercise my privacy rights.
+
 Acceptance Criteria:
 
-- Given I am logged in, when I click the logout button, then I am logged out and redirected to the home page
-- Given I have logged out, when I try to access my collection, then I am redirected to the login page
+- Delete account option in profile settings
+- Clear warning about permanent data loss after 30 days
+- Confirmation dialog requires explicit user action
+- Account enters soft-delete state immediately
+- All collection data marked for deletion
+- Email confirmation sent about deletion
 
-US-006
-Title: Password Reset
-Description: As a user who forgot my password, I want to reset my password so that I can regain access to my account.
+---
+
+#### US-006: Recover Deleted Account
+
+ID: US-006
+Title: Recover Account Within Grace Period
+Description: As a user who deleted my account, I want a 30-day recovery period so that I can restore my account if I change my mind.
+
 Acceptance Criteria:
 
-- Given I am on the login page, when I click "Forgot Password" and enter my email, then I receive a password reset email
-- Given I received a password reset email, when I click the link and enter a new valid password, then my password is updated
-- Given I have reset my password, when I log in with my new password, then I am successfully authenticated
+- Logging in during 30-day period restores account
+- All collection data restored upon recovery
+- Message displayed explaining account was restored
+- After 30 days, account and data permanently deleted
 
-### Card Browsing and Search
+---
 
-US-007
-Title: Search for Cards by Name
-Description: As a user, I want to search for Pokémon cards by name so that I can find specific cards I am looking for.
+### Card Browsing and Discovery
+
+#### US-007: Browse Card Sets
+
+ID: US-007
+Title: Browse Cards by Set
+Description: As a collector, I want to browse cards organized by set so that I can explore what cards are available in each expansion.
+
 Acceptance Criteria:
 
-- Given I am on any page with the search bar, when I type a card name, then I see auto-complete suggestions matching my input
-- Given I am searching, when I select a suggestion or press enter, then I see search results displaying matching cards
-- Given search results are displayed, when I view the results, then each card shows its image, name, set name, and card number
+- Home page displays list of all card sets
+- Sets show name, release date, and card count
+- Clicking a set navigates to set detail page
+- Set list loads in under 1 second
+- Sets are sortable by name or release date
 
-US-008
-Title: Filter Search Results
-Description: As a user, I want to filter search results by set, name, or card number so that I can narrow down results to find the exact card I need.
+---
+
+#### US-008: View Cards in Set
+
+ID: US-008
+Title: View All Cards in a Set
+Description: As a collector, I want to view all cards within a specific set so that I can see the complete contents of an expansion.
+
 Acceptance Criteria:
 
-- Given I have search results displayed, when I apply a set filter, then only cards from the selected set are shown
-- Given I have search results displayed, when I apply a card number filter, then only cards matching that number are shown
-- Given I have multiple filters applied, when I clear a filter, then the results update to reflect the remaining filters
-- Given I have filters applied, when I clear all filters, then all original search results are displayed
+- Set detail page shows all cards in the set
+- Cards displayed in a grid layout
+- Card thumbnails show name and number
+- Pagination controls for sets with many cards
+- Option to change cards per page (20, 30, 50)
 
-US-009
-Title: View Card Details
-Description: As a user, I want to view detailed information about a card so that I can see its complete information.
+---
+
+#### US-009: Search for Cards
+
+ID: US-009
+Title: Search Cards by Multiple Criteria
+Description: As a collector, I want to search for cards by name, set, number, or Pokémon so that I can quickly find specific cards.
+
 Acceptance Criteria:
 
-- Given I am viewing search results or my collection, when I click on a card, then I see the card detail view
-- Given I am viewing card details, when I look at the information displayed, then I see the card image, name, set, card number, rarity, and current market price
+- Search input visible on all pages
+- Search supports card name, set name, card number, Pokémon name
+- Results appear within 200ms
+- Search input has 300ms debounce
+- Results are paginated
+- "No results found" message for empty results
 
-US-010
-Title: Browse Cards Without Authentication
-Description: As an unauthenticated user, I want to browse and search for Pokémon cards so that I can explore the catalog before creating an account.
+---
+
+#### US-010: Filter Cards
+
+ID: US-010
+Title: Filter Cards by Attributes
+Description: As a collector, I want to filter cards by rarity, type, and price range so that I can find cards matching specific criteria.
+
 Acceptance Criteria:
 
-- Given I am not logged in, when I use the search functionality, then I can search and view card information
-- Given I am not logged in, when I try to add a card to a collection, then I am prompted to log in or register
+- Filter controls available on set view and search results
+- Filter by rarity (common, uncommon, rare, etc.)
+- Filter by card type
+- Filter by price range (min/max)
+- Multiple filters can be combined
+- "Clear filters" option resets all filters
+- Filter state preserved during pagination
+
+---
+
+#### US-011: View Card Details
+
+ID: US-011
+Title: View Complete Card Information
+Description: As a user, I want to view detailed information about any card so that I can research cards before purchasing or trading.
+
+Acceptance Criteria:
+
+- Card detail page accessible without authentication
+- Displays card name, set, number, rarity, type
+- Shows card artwork (lazy loaded)
+- Placeholder image shown when artwork unavailable
+- Market price displayed with "Last updated" timestamp
+- "Limited information available" shown when data incomplete
+- Guest users see "Add to Collection" prompt
+- Authenticated users see collection status
+
+---
+
+#### US-012: Check Price Freshness
+
+ID: US-012
+Title: Verify Price Data Currency
+Description: As a user, I want to see when price data was last updated so that I can assess if the information is current.
+
+Acceptance Criteria:
+
+- "Last updated" timestamp displayed with all prices
+- Timestamp shows relative time (e.g., "2 hours ago")
+- Visual indicator for stale data (older than 24 hours)
+- Hover/tap shows exact timestamp
+
+---
 
 ### Collection Management
 
-US-011
-Title: Add Card to Collection
-Description: As an authenticated user, I want to add a card to my collection so that I can track the cards I own.
+#### US-013: Add Card to Collection
+
+ID: US-013
+Title: Add Card to My Collection
+Description: As a collector, I want to add cards to my collection with quantity and condition so that I can track what I own.
+
 Acceptance Criteria:
 
-- Given I am logged in and viewing a card, when I click "Add to Collection," then a modal appears asking for quantity and condition
-- Given the add modal is open, when I enter a quantity (required) and optionally a condition and click save, then the card is added to my collection
-- Given I have added a card, when the save completes, then I see a toast notification confirming the card was added
-- Given I try to add a card, when the operation fails, then I see an error toast notification
+- "Add to Collection" button on card detail page (authenticated users)
+- Modal opens for entering card details
+- Quantity field with increment/decrement controls (min: 1)
+- Condition dropdown with predefined options
+- Optional professional grade fields (company, value)
+- Optional purchase price field (USD)
+- Optional notes field (500 character limit)
+- Success confirmation message after adding
+- Card appears in collection immediately
 
-US-012
-Title: Add Card with Quantity
-Description: As an authenticated user, I want to specify how many copies of a card I own so that my collection accurately reflects my inventory.
-Acceptance Criteria:
+---
 
-- Given I am adding a card, when I enter a quantity greater than zero, then that quantity is saved with the card
-- Given I am adding a card, when I enter a quantity of zero or a negative number, then I see a validation error
-- Given I am adding a card, when I leave quantity blank, then I see a validation error requiring a quantity
+#### US-014: Update Collection Entry
 
-US-013
-Title: Add Card with Condition
-Description: As an authenticated user, I want to specify the condition of my card so that I can track the quality of my collection.
-Acceptance Criteria:
-
-- Given I am adding a card, when I select a condition from the available options, then that condition is saved with the card
-- Given I am adding a card, when I leave condition blank, then the card is saved without a condition specified
-- Given I view my collection, when a card has a condition specified, then the condition is displayed with the card
-
-US-014
+ID: US-014
 Title: Edit Card in Collection
-Description: As an authenticated user, I want to edit the quantity or condition of a card in my collection so that I can keep my collection accurate.
+Description: As a collector, I want to update the details of a card in my collection so that I can correct information or change condition.
+
 Acceptance Criteria:
 
-- Given I am viewing my collection, when I click the edit button on a card, then an edit modal appears with current values pre-filled
-- Given the edit modal is open, when I change the quantity and save, then the new quantity is stored
-- Given the edit modal is open, when I change the condition and save, then the new condition is stored
-- Given I have edited a card, when the save completes, then I see a toast notification confirming the update
+- Edit button on collection card entries
+- All fields editable (quantity, condition, grade, price, notes)
+- Changes saved with confirmation message
+- Cancel option discards changes
+- Updated timestamp reflects edit time
 
-US-015
-Title: Delete Card from Collection
-Description: As an authenticated user, I want to delete a card from my collection so that I can remove cards I no longer own.
+---
+
+#### US-015: Remove Card from Collection
+
+ID: US-015
+Title: Remove Card from Collection
+Description: As a collector, I want to remove cards from my collection so that I can keep my collection accurate when I sell or trade cards.
+
 Acceptance Criteria:
 
-- Given I am viewing my collection, when I click the delete icon on a card, then a confirmation modal appears
-- Given the confirmation modal is open, when I confirm the deletion, then the card is removed from my collection
-- Given the confirmation modal is open, when I cancel the deletion, then the card remains in my collection
-- Given I have deleted a card, when the deletion completes, then I see a toast notification confirming the removal
+- Remove/delete button on collection entries
+- Confirmation dialog before removal
+- Card removed from all associated lists
+- Success message after removal
+- Collection total updates immediately
 
-US-016
-Title: Add Duplicate Card to Collection
-Description: As an authenticated user, I want to add a card that already exists in my collection so that I can track multiple copies separately or update my quantity.
+---
+
+#### US-016: View Collection Value
+
+ID: US-016
+Title: See Total Collection Value
+Description: As a collector, I want to see the current market value of my collection so that I can understand my total investment worth.
+
 Acceptance Criteria:
 
-- Given I have a card in my collection, when I try to add the same card again, then I am prompted to either update the existing entry's quantity or add as a new entry
-- Given I choose to update quantity, when I confirm, then the existing entry's quantity is increased
-- Given I choose to add as new, when I confirm, then a new entry is created for the same card
+- Total collection value displayed on collection page
+- Value calculated from current market prices
+- Individual card values shown per entry
+- Value accounts for quantity (price × quantity)
+- Last updated timestamp for price data
 
-### Collection Display
+---
 
-US-017
-Title: View Collection Page
-Description: As an authenticated user, I want to view my card collection so that I can see all the cards I own.
+#### US-017: Track Purchase Price
+
+ID: US-017
+Title: Record Purchase Price
+Description: As a collector, I want to record my purchase price for cards so that I can track my investment compared to current market value.
+
 Acceptance Criteria:
 
-- Given I am logged in, when I navigate to my collection page, then I see all my cards displayed
-- Given I have cards in my collection, when I view the collection, then cards are grouped by set
-- Given cards are grouped by set, when I view each group, then cards are sorted by card number within the set
+- Purchase price field when adding/editing card
+- Purchase price displayed in collection view
+- Comparison to current market price visible
+- Profit/loss indication per card
+- Total investment shown on collection page
 
-US-018
-Title: Paginate Collection View
-Description: As an authenticated user with many cards, I want my collection to be paginated so that the page loads quickly.
+---
+
+#### US-018: Add Notes to Cards
+
+ID: US-018
+Title: Add Notes to Collection Entries
+Description: As a collector, I want to add notes to my cards so that I can remember where I acquired them or their trade status.
+
 Acceptance Criteria:
 
-- Given I have more cards than fit on one page, when I view my collection, then I see pagination controls
-- Given pagination is displayed, when I click next page, then I see the next set of cards
-- Given I am on a page other than the first, when I click previous page, then I see the previous set of cards
-- Given pagination is displayed, when I click a specific page number, then I navigate to that page
+- Notes field available when adding/editing card
+- Maximum 500 characters enforced
+- Character count displayed during input
+- Notes visible in collection detail view
+- Notes searchable within collection (future consideration)
 
-US-019
-Title: View Collection Total Value
-Description: As an authenticated user, I want to see the total estimated value of my collection so that I know what my cards are worth.
+---
+
+#### US-019: Record Professional Grades
+
+ID: US-019
+Title: Record Graded Card Information
+Description: As a collector, I want to record professional grades for my graded cards so that I can track their certified condition.
+
 Acceptance Criteria:
 
-- Given I have cards in my collection, when I view my collection or profile page, then I see the total estimated market value
-- Given I have multiple copies of a card, when the value is calculated, then the quantity is factored into the total
-- Given a card does not have a price available, when the value is calculated, then that card is excluded and the user is informed
+- Optional grade company selection (PSA, BGS, CGC)
+- Grade value input (1.0 to 10.0)
+- Validation ensures valid grade ranges
+- Grade company required if grade value entered
+- Grade displayed prominently in collection view
 
-US-020
-Title: View Empty Collection State
-Description: As a new user with no cards, I want to see a helpful empty state so that I know how to start adding cards.
+---
+
+### List Organization
+
+#### US-020: Create Custom List
+
+ID: US-020
+Title: Create a Custom List
+Description: As a collector, I want to create custom lists so that I can organize my collection for different purposes.
+
 Acceptance Criteria:
 
-- Given I am logged in with no cards in my collection, when I view my collection page, then I see an empty state message
-- Given I see the empty state, when I look at the content, then I see guidance on how to search for and add cards
-- Given I see the empty state, when I click the suggested action, then I am taken to the search functionality
+- "Create list" option in collection management
+- List name required (maximum 50 characters)
+- List created successfully with confirmation
+- New list appears in list selector
+- Error if user already has 10 lists (MVP limit)
 
-### User Profile
+---
 
-US-021
-Title: View Profile Page
-Description: As an authenticated user, I want to view my profile page so that I can see a summary of my collection.
+#### US-021: Add Card to List
+
+ID: US-021
+Title: Assign Card to Custom List
+Description: As a collector, I want to assign cards to custom lists so that I can organize cards for trades or specific purposes.
+
 Acceptance Criteria:
 
-- Given I am logged in, when I navigate to my profile page, then I see my profile information
-- Given I am on my profile page, when I view the content, then I see a summary of card counts per set
-- Given I am on my profile page, when I view the content, then I see the total collection value displayed prominently
+- List assignment option on collection entries
+- Multi-select for assigning to multiple lists
+- Card can belong to multiple lists simultaneously
+- Visual indicator shows current list assignments
+- Changes saved immediately
 
-US-022
-Title: View Collection Summary by Set
-Description: As an authenticated user, I want to see how many cards I have from each set so that I can track my collection progress.
+---
+
+#### US-022: View Cards by List
+
+ID: US-022
+Title: Filter Collection by List
+Description: As a collector, I want to filter my collection by list so that I can view only cards in a specific category.
+
 Acceptance Criteria:
 
-- Given I am on my profile page, when I view the set summary, then I see each set I have cards from with a count
-- Given I have cards from multiple sets, when I view the summary, then sets are listed alphabetically or by most cards
-- Given I add or remove cards, when I return to my profile, then the counts are updated to reflect changes
+- List filter dropdown on collection page
+- Selecting list shows only cards in that list
+- "All cards" option shows complete collection
+- Card count displayed per list
+- Filter state preserved during pagination
 
-### User Interface and Experience
+---
 
-US-023
-Title: Switch Between Light and Dark Theme
-Description: As a user, I want to switch between light and dark themes so that I can use the application comfortably in different lighting conditions.
+#### US-023: Delete Custom List
+
+ID: US-023
+Title: Delete a Custom List
+Description: As a collector, I want to delete custom lists I no longer need so that I can keep my organization manageable.
+
 Acceptance Criteria:
 
-- Given I am using the application, when I toggle the theme setting, then the interface switches between light and dark mode
-- Given I have selected a theme, when I return to the application later, then my theme preference is preserved
-- Given I have not set a preference, when I first load the application, then the system default or light theme is applied
+- Delete option for each list
+- Confirmation dialog before deletion
+- Cards remain in collection after list deletion
+- Success message after deletion
+- List count updates immediately
 
-US-024
-Title: View Loading States
-Description: As a user, I want to see loading indicators while content loads so that I know the application is working.
+---
+
+### Onboarding
+
+#### US-024: Quick Onboarding
+
+ID: US-024
+Title: Understand App Features Quickly
+Description: As a new user, I want to quickly understand how to use the app so that I can start adding cards immediately.
+
 Acceptance Criteria:
 
-- Given I am waiting for content to load, when the page is fetching data, then I see skeleton loaders in place of content
-- Given skeleton loaders are displayed, when the data loads successfully, then the loaders are replaced with actual content
-- Given skeleton loaders are displayed, when the shape of loaders mimics the content layout, then the transition feels smooth
+- Welcome modal appears after first login
+- Modal highlights key features: Browse, Search, Add to Collection
+- Step-by-step visual guide
+- "Skip" option available to dismiss
+- Modal does not appear on subsequent logins
 
-US-025
-Title: Receive Action Confirmations
-Description: As a user, I want to receive confirmation when I perform actions so that I know my actions were successful.
+---
+
+### Administration
+
+#### US-025: Monitor Import Jobs
+
+ID: US-025
+Title: View Import Job History
+Description: As an admin, I want to view import job logs so that I can monitor data synchronization health.
+
 Acceptance Criteria:
 
-- Given I add a card to my collection, when the operation succeeds, then I see a toast notification confirming the addition
-- Given I edit a card in my collection, when the operation succeeds, then I see a toast notification confirming the update
-- Given I delete a card from my collection, when the operation succeeds, then I see a toast notification confirming the deletion
-- Given any action fails, when the error occurs, then I see a toast notification explaining the failure
+- Admin dashboard accessible only to admin users
+- Import history shows last 30 days
+- Each job shows: start time, duration, status
+- Success/failure counts per job
+- Error details accessible for failed jobs
 
-US-026
-Title: View API Unavailability Notice
-Description: As a user, I want to be informed when external card data is unavailable so that I understand why some features may not work.
+---
+
+#### US-026: Trigger Manual Import
+
+ID: US-026
+Title: Manually Trigger CSV Import
+Description: As an admin, I want to manually trigger CSV imports so that I can refresh data on demand.
+
 Acceptance Criteria:
 
-- Given the external API is unavailable, when I use the application, then I see a non-intrusive banner informing me of the issue
-- Given the API unavailability banner is displayed, when I continue using the application, then I can still access cached data and my collection
-- Given the API becomes available again, when the system detects connectivity, then the banner is removed
+- Manual import button on admin dashboard
+- Confirmation dialog before triggering
+- Progress indicator while import runs
+- Success/failure notification when complete
+- New import appears in job history
 
-US-027
-Title: Navigate Application on Mobile
-Description: As a mobile user, I want the application to be fully functional on my phone so that I can manage my collection anywhere.
+---
+
+#### US-027: View Platform Statistics
+
+ID: US-027
+Title: See Aggregate Platform Statistics
+Description: As an admin, I want to see aggregate user statistics so that I can track platform growth.
+
 Acceptance Criteria:
 
-- Given I am using a mobile device, when I access the application, then all features are accessible and usable
-- Given I am on a mobile device, when I view the interface, then elements are appropriately sized for touch interaction
-- Given I am on a mobile device, when I view my collection, then the layout adapts to the screen size
+- Statistics dashboard for admins
+- Total registered users (excluding soft-deleted)
+- Total cards in all collections
+- Total unique cards tracked
+- Statistics refresh on page load
 
-### Legal and Compliance
+---
 
-US-028
-Title: View Privacy Policy
-Description: As a user, I want to read the Privacy Policy so that I understand how my data is handled.
+### Edge Cases and Error Handling
+
+#### US-028: Handle Missing Card Data
+
+ID: US-028
+Title: Gracefully Handle Incomplete Card Information
+Description: As a user, I want to see appropriate messaging when card data is incomplete so that I understand the limitations.
+
 Acceptance Criteria:
 
-- Given I am on any page, when I click the Privacy Policy link in the footer, then I am taken to the Privacy Policy page
-- Given I am on the Privacy Policy page, when I read the content, then I see clear information about data collection and usage
+- "Limited information available" message for incomplete cards
+- Placeholder image for missing artwork
+- Price shows "N/A" when unavailable
+- Card still functional for collection purposes
 
-US-029
-Title: View Terms of Service
-Description: As a user, I want to read the Terms of Service so that I understand the rules for using the application.
+---
+
+#### US-029: Handle Search with No Results
+
+ID: US-029
+Title: Display Empty Search Results Appropriately
+Description: As a user, I want clear feedback when my search returns no results so that I can adjust my search terms.
+
 Acceptance Criteria:
 
-- Given I am on any page, when I click the Terms of Service link in the footer, then I am taken to the Terms of Service page
-- Given I am on the Terms of Service page, when I read the content, then I see clear terms governing use of the application
+- "No results found" message displayed
+- Suggestions for refining search provided
+- Search input retains entered text
+- Easy option to clear and try new search
 
-### Error Handling and Edge Cases
+---
 
-US-030
-Title: Handle Search with No Results
-Description: As a user, I want to see a helpful message when my search returns no results so that I know to try a different query.
+#### US-030: Handle Network Errors
+
+ID: US-030
+Title: Gracefully Handle Network Connectivity Issues
+Description: As a user, I want appropriate error messages when network issues occur so that I understand why actions failed.
+
 Acceptance Criteria:
 
-- Given I perform a search, when no cards match my query, then I see a message indicating no results were found
-- Given I see the no results message, when I view the content, then I see suggestions to try a different search term or adjust filters
+- Clear error message for network failures
+- Retry option provided where appropriate
+- User data not lost during error
+- Error logged for debugging
 
-US-031
-Title: Handle Network Errors Gracefully
-Description: As a user, I want the application to handle network errors gracefully so that I can continue using available features.
+---
+
+#### US-031: Prevent Duplicate Collection Entries
+
+ID: US-031
+Title: Handle Adding Duplicate Cards
+Description: As a collector, I want the system to handle duplicate card additions appropriately so that I don't accidentally create separate entries for the same card.
+
 Acceptance Criteria:
 
-- Given a network error occurs during an operation, when the error is detected, then I see an appropriate error message
-- Given a network error occurs, when viewing my collection, then I can still see cached data if available
-- Given a network error occurred, when connectivity is restored, then the application resumes normal operation
+- System detects if card already in collection
+- Option to update quantity instead of creating duplicate
+- Clear message explaining card already exists
+- User can choose to edit existing entry
 
-US-032
-Title: Handle Invalid Session
-Description: As a user with an expired session, I want to be redirected to login so that I can re-authenticate securely.
+---
+
+#### US-032: Handle List Limit Reached
+
+ID: US-032
+Title: Display List Limit Warning
+Description: As a collector, I want to know when I've reached my list limit so that I understand why I cannot create more lists.
+
 Acceptance Criteria:
 
-- Given my session has expired, when I try to access protected content, then I am redirected to the login page
-- Given I am redirected to login, when I view the page, then I see a message explaining my session expired
-- Given I re-authenticate, when I log in successfully, then I am returned to my previous location if possible
+- Clear message when 10-list limit reached
+- Suggestion to delete unused lists
+- Create list option disabled at limit
+- Count of current lists displayed
 
-US-033
-Title: Prevent Accidental Data Loss
-Description: As a user, I want confirmation before destructive actions so that I do not accidentally lose data.
+---
+
+#### US-033: Session Expiration Handling
+
+ID: US-033
+Title: Handle Expired Session Gracefully
+Description: As a user, I want to be notified when my session expires so that I can re-authenticate and continue working.
+
 Acceptance Criteria:
 
-- Given I click delete on a card, when the action is triggered, then a confirmation modal appears before deletion occurs
-- Given the confirmation modal is displayed, when I click cancel, then no deletion occurs and the modal closes
-- Given the confirmation modal is displayed, when I click confirm, then the deletion proceeds
+- Clear message when session expires
+- Redirect to login page
+- Return to previous page after re-login
+- Unsaved changes warning if applicable
+
+---
 
 ## 6. Success Metrics
 
 ### Primary Metrics
 
-SM-001: User Adoption Rate
+| Metric ID | Metric              | Target                                                     | Measurement Method                                    |
+| --------- | ------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| SM-001    | User Adoption Rate  | 90% of registered users have at least 1 card in collection | Database query: Users with cards ÷ Total active users |
+| SM-002    | Weekly Active Users | 75% of users log in at least once per week                 | Weekly cohort analysis on last_sign_in_at             |
 
-- Definition: Percentage of users who log in more than once and add at least one card to their collection within their first week
-- Target: 90%
-- Measurement: Track user registration date, login events, and first card addition timestamp
+### Performance Metrics
 
-SM-002: Weekly Active Engagement
+| Metric ID | Metric               | Target         | Measurement Method              |
+| --------- | -------------------- | -------------- | ------------------------------- |
+| SM-003    | Search Response Time | < 200ms P95    | Server-side APM monitoring      |
+| SM-004    | Page Load Time       | < 1 second P95 | Client-side performance metrics |
+| SM-005    | API Cache Hit Rate   | > 80%          | Cache layer logging             |
 
-- Definition: Percentage of registered users who log in at least once per week
-- Target: 50%
-- Measurement: Track unique user logins per week against total registered user base
+### Data Quality Metrics
 
-### Supporting Metrics
+| Metric ID | Metric               | Target                   | Measurement Method               |
+| --------- | -------------------- | ------------------------ | -------------------------------- |
+| SM-006    | Import Success Rate  | > 95% successful imports | Import job status tracking       |
+| SM-007    | Price Data Freshness | Updated daily            | Last import timestamp monitoring |
 
-SM-003: Collection Activity
+### Engagement Metrics
 
-- Definition: Active engagement defined as users who perform at least one of the following actions: adding cards, viewing their collection, or browsing cards
-- Target: Track and report weekly
-- Measurement: Count unique users performing these actions per week
+| Metric ID | Metric               | Target                                     | Measurement Method           |
+| --------- | -------------------- | ------------------------------------------ | ---------------------------- |
+| SM-008    | Cards per Collection | Average > 10 cards                         | Database query on user_cards |
+| SM-009    | List Adoption        | > 30% of users create at least 1 list      | Database query on user_lists |
+| SM-010    | Return Visit Rate    | > 50% return within 7 days of registration | Session analytics            |
 
-SM-004: Cards Added per User
+### Reliability Metrics
 
-- Definition: Average number of cards added to collections per active user
-- Target: Establish baseline and track growth
-- Measurement: Total cards added divided by active users per period
-
-SM-005: Search to Add Conversion
-
-- Definition: Percentage of search sessions that result in a card being added to a collection
-- Target: Establish baseline and optimize
-- Measurement: Track search sessions and subsequent add-to-collection events
-
-SM-006: Error Rate
-
-- Definition: Percentage of user actions that result in errors
-- Target: Less than 1%
-- Measurement: Track failed API calls, failed user actions, and error toast displays
-
-SM-007: API Availability
-
-- Definition: Uptime of the application and external API integrations
-- Target: 99.5% uptime for application, with graceful degradation when external APIs are unavailable
-- Measurement: Monitor application health and API response status
-
-### Data Collection Notes
-
-- All metrics will be collected anonymously in compliance with the Privacy Policy
-- Metrics will be reviewed weekly during initial launch period
-- Success criteria will be evaluated after 30 days of active use
+| Metric ID | Metric        | Target           | Measurement Method        |
+| --------- | ------------- | ---------------- | ------------------------- |
+| SM-011    | System Uptime | > 99.5%          | Uptime monitoring service |
+| SM-012    | Error Rate    | < 1% of requests | Server error logging      |
