@@ -20,8 +20,20 @@ create table tcg_types (
   created_at timestamptz not null default now()
 );
 
--- note: rls disabled for local development
--- alter table tcg_types enable row level security;
+-- enable row level security
+alter table tcg_types enable row level security;
+
+-- policy: allow anonymous users to view all tcg types
+create policy "tcg_types_select_anon"
+  on tcg_types for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all tcg types
+create policy "tcg_types_select_authenticated"
+  on tcg_types for select
+  to authenticated
+  using (true);
 
 -- table: card_conditions
 -- purpose: standardized condition codes (nm, lp, mp, hp, dmg) for collection entries
@@ -34,8 +46,20 @@ create table card_conditions (
   created_at timestamptz not null default now()
 );
 
--- note: rls disabled for local development
--- alter table card_conditions enable row level security;
+-- enable row level security
+alter table card_conditions enable row level security;
+
+-- policy: allow anonymous users to view all card conditions
+create policy "card_conditions_select_anon"
+  on card_conditions for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all card conditions
+create policy "card_conditions_select_authenticated"
+  on card_conditions for select
+  to authenticated
+  using (true);
 
 -- table: price_sources
 -- purpose: external price data providers (tcgplayer, cardmarket, etc.)
@@ -48,8 +72,20 @@ create table price_sources (
   created_at timestamptz not null default now()
 );
 
--- note: rls disabled for local development
--- alter table price_sources enable row level security;
+-- enable row level security
+alter table price_sources enable row level security;
+
+-- policy: allow anonymous users to view all price sources
+create policy "price_sources_select_anon"
+  on price_sources for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all price sources
+create policy "price_sources_select_authenticated"
+  on price_sources for select
+  to authenticated
+  using (true);
 
 -- ==============================================================================
 -- catalog tables
@@ -66,8 +102,20 @@ create table rarities (
   created_at timestamptz not null default now()
 );
 
--- note: rls disabled for local development
--- alter table rarities enable row level security;
+-- enable row level security
+alter table rarities enable row level security;
+
+-- policy: allow anonymous users to view all rarities
+create policy "rarities_select_anon"
+  on rarities for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all rarities
+create policy "rarities_select_authenticated"
+  on rarities for select
+  to authenticated
+  using (true);
 
 -- table: sets
 -- purpose: tcg expansion/release sets with metadata and sync tracking
@@ -90,8 +138,20 @@ create table sets (
 -- index: optimize catalog browsing by tcg type and release date
 create index idx_sets_tcg_type_release on sets(tcg_type, release_date desc);
 
--- note: rls disabled for local development
--- alter table sets enable row level security;
+-- enable row level security
+alter table sets enable row level security;
+
+-- policy: allow anonymous users to view all sets
+create policy "sets_select_anon"
+  on sets for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all sets
+create policy "sets_select_authenticated"
+  on sets for select
+  to authenticated
+  using (true);
 
 -- table: cards
 -- purpose: individual trading cards with metadata, images, and legality info
@@ -133,8 +193,20 @@ create index idx_cards_name_trgm on cards using gin(name gin_trgm_ops);
 -- index: future-proof filtering by tcg franchise
 create index idx_cards_tcg_type on cards(tcg_type);
 
--- note: rls disabled for local development
--- alter table cards enable row level security;
+-- enable row level security
+alter table cards enable row level security;
+
+-- policy: allow anonymous users to view all cards
+create policy "cards_select_anon"
+  on cards for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all cards
+create policy "cards_select_authenticated"
+  on cards for select
+  to authenticated
+  using (true);
 
 -- ==============================================================================
 -- pricing tables
@@ -161,8 +233,20 @@ create index idx_card_prices_source_currency on card_prices(price_source, curren
 -- index: identify stale price records for refresh jobs
 create index idx_card_prices_last_seen on card_prices(last_seen_at);
 
--- note: rls disabled for local development
--- alter table card_prices enable row level security;
+-- enable row level security
+alter table card_prices enable row level security;
+
+-- policy: allow anonymous users to view all card prices
+create policy "card_prices_select_anon"
+  on card_prices for select
+  to anon
+  using (true);
+
+-- policy: allow authenticated users to view all card prices
+create policy "card_prices_select_authenticated"
+  on card_prices for select
+  to authenticated
+  using (true);
 
 -- ==============================================================================
 -- user collection tables
@@ -195,8 +279,33 @@ create index idx_collection_entries_user_set on collection_entries(user_id, set_
 -- index: support recent activity feeds
 create index idx_collection_entries_user_created on collection_entries(user_id, created_at desc);
 
--- note: rls disabled for local development
--- alter table collection_entries enable row level security;
+-- enable row level security
+alter table collection_entries enable row level security;
+
+-- policy: allow users to view only their own collection entries
+create policy "collection_entries_select_own"
+  on collection_entries for select
+  to authenticated
+  using (user_id = auth.uid());
+
+-- policy: allow users to insert only their own collection entries
+create policy "collection_entries_insert_own"
+  on collection_entries for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+-- policy: allow users to update only their own collection entries
+create policy "collection_entries_update_own"
+  on collection_entries for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- policy: allow users to delete only their own collection entries
+create policy "collection_entries_delete_own"
+  on collection_entries for delete
+  to authenticated
+  using (user_id = auth.uid());
 
 -- ==============================================================================
 -- api cache table
@@ -220,8 +329,10 @@ create table api_cache (
 -- index: support scheduled eviction of expired cache entries
 create index idx_api_cache_expires on api_cache(expires_at);
 
--- note: rls disabled for local development
--- alter table api_cache enable row level security;
+-- enable row level security
+alter table api_cache enable row level security;
+
+-- note: no policies defined - service role only access via supabase service key
 
 -- ==============================================================================
 -- triggers for automatic timestamp updates
