@@ -1,12 +1,13 @@
 # TCGCollectr
 
-![Node.js](https://img.shields.io/badge/node-22.14.0-43853d?logo=node.js&logoColor=white)
-![Astro](https://img.shields.io/badge/astro-5.x-fc7b03?logo=astro)
-![Status](https://img.shields.io/badge/status-MVP_in_progress-orange)
-![License](https://img.shields.io/badge/license-Apache--2.0-0a0a0a)
+![Node Version](https://img.shields.io/badge/Node-22.14.0-5FA04E?logo=node.js&logoColor=white)
+![Astro](https://img.shields.io/badge/Astro-5.16-FF5D01?logo=astro&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![License](https://img.shields.io/badge/License-Apache--2.0-blue)
+
+> Pokémon TCG collection management platform that blends Astro islands, React interactivity, and Supabase services for fast, data-driven experiences.
 
 ## Table of Contents
-
 - [1. Project Name](#1-project-name)
 - [2. Project Description](#2-project-description)
 - [3. Tech Stack](#3-tech-stack)
@@ -17,96 +18,68 @@
 - [8. License](#8-license)
 
 ## 1. Project Name
-
-**TCGCollectr** — a focused collection manager for Pokémon trading cards designed for collectors who want clarity without the clutter of enterprise inventory tools.
+TCGCollectr — Trading Card Game collection manager focused on Pokémon TCG collectors.
 
 ## 2. Project Description
-
-TCGCollectr helps collectors browse the full Pokémon catalog, capture the cards they own (with quantity, condition, and current market value), and understand their portfolio’s worth at a glance. The MVP emphasises:
-
-- Search-first UX with auto-complete, filters, and detailed card sheets derived from pokemontcg.io (with JustTCG fallback).
-- Supabase-backed authentication (email/password + magic link) and Row Level Security so users only see their own collections.
-- Collection flows that highlight clarity: add/edit/delete with confirmations, toast feedback, skeleton loaders, and guided empty states.
-
-For deeper business requirements and success metrics, see [docs/prd.md](docs/prd.md) and [docs/tech-stack.md](docs/tech-stack.md).
+TCGCollectr delivers a searchable, filterable catalog of 15,000+ Pokémon cards with daily pricing from tcgcsv.com and enriched attributes from pokemontcg.io. Authenticated users organize personal collections, track quantities, condition, grading, and purchase price, while Supabase Auth and Row Level Security keep data isolated per user. The application targets an MVP release that prioritizes speed (Astro islands + React 19), accessibility (Tailwind 4 + Shadcn/ui), and operational simplicity (Supabase PostgreSQL, Edge Functions, and pg_cron imports). See [docs/prd.md](docs/prd.md) for the complete product requirements and [docs/tech-stack.md](docs/tech-stack.md) for architectural context.
 
 ## 3. Tech Stack
-
-| Layer     | Technology                                  | Purpose                                                               |
-| --------- | ------------------------------------------- | --------------------------------------------------------------------- |
-| Framework | Astro 5 (SSR) + React 19 islands            | Hybrid rendering with interactivity only where needed                 |
-| Language  | TypeScript 5                                | Shared types across frontend, middleware, and Supabase Edge functions |
-| Styling   | Tailwind CSS 4 + Shadcn/ui + Lucide icons   | Utility-first design, accessible components, consistent iconography   |
-| Backend   | Supabase (PostgreSQL, Auth, Edge Functions) | Data persistence, RLS enforcement, pokemontcg.io proxy with 24h cache |
-| Tooling   | ESLint 9, Prettier, Husky, lint-staged      | Enforced quality gates on every commit                                |
-| Hosting   | Azure Static Web Apps + Supabase Cloud      | Global CDN for the Astro app, managed backend services                |
+| Layer | Technology |
+| --- | --- |
+| Framework | Astro 5 (SSR + islands) with React 19 components |
+| Language | TypeScript 5 across frontend and backend |
+| Styling | Tailwind CSS 4, Shadcn/ui (New York theme), tw-animate CSS |
+| Backend & Auth | Supabase PostgreSQL, Supabase Auth, Edge Functions, Row Level Security |
+| Tooling | ESLint 9, Prettier (with Astro plugin), Husky + lint-staged, Supabase CLI |
+| Data Sources | tcgcsv.com (daily CSV import) and pokemontcg.io (24h cached API) |
+| Hosting & CI | Azure Static Web Apps, Supabase Cloud, GitHub Actions (planned) |
 
 ## 4. Getting Started Locally
-
-### Prerequisites
-
-- Node.js **22.14.0** (see `.nvmrc`)
-- npm **10+**
-- Supabase project (or local stack) to supply credentials
-
-### Setup
-
-1. **Clone and install**
-   ```bash
-   git clone https://github.com/<your-org>/TCGCollectr.git
-   cd TCGCollectr
-   npm install
-   ```
-2. **Configure environment variables** (create `.env` or export via shell)
-   ```bash
-   SUPABASE_URL=<your-supabase-project-url>
-   SUPABASE_KEY=<your-anon-public-key>
-   ```
-3. **Run the dev server**
-   ```bash
-   npm run dev
-   ```
-4. **Build and preview production output** (optional)
-   ```bash
-   npm run build
-   npm run preview
-   ```
-
-Additional architectural notes live in [docs/tech-stack.md](docs/tech-stack.md) and product direction in [docs/prd.md](docs/prd.md).
+1. **Prerequisites**
+	- Node.js 22.14.0 (`.nvmrc` provided; use `nvm use` or install manually).
+	- npm (bundled with Node) or another compatible package manager.
+	- Supabase project with `SUPABASE_URL` and `SUPABASE_KEY` env values.
+2. **Install dependencies**
+	```bash
+	npm install
+	```
+3. **Configure environment**
+	- Copy `.env.example` (create if missing) to `.env` and supply Supabase credentials plus any Astro/Supabase settings documented in [docs/tech-stack.md](docs/tech-stack.md).
+4. **Run the dev server**
+	```bash
+	npm run dev
+	```
+	- Astro serves the site with hot reload at `http://localhost:4321` (default).
+5. **Lint and format (optional but recommended)**
+	```bash
+	npm run lint
+	npm run format
+	```
+6. **Build for production**
+	```bash
+	npm run build
+	```
+	- Preview the static output via `npm run preview`.
 
 ## 5. Available Scripts
-
-| Command            | Description                               |
-| ------------------ | ----------------------------------------- |
-| `npm run dev`      | Start Astro dev server with React islands |
-| `npm run build`    | Create an optimized production build      |
-| `npm run preview`  | Preview the production output locally     |
-| `npm run astro`    | Run arbitrary Astro CLI commands          |
-| `npm run lint`     | Lint the entire workspace via ESLint      |
-| `npm run lint:fix` | Apply ESLint auto-fixes                   |
-| `npm run format`   | Format source files with Prettier         |
+- `npm run dev` — Start the Astro dev server with SSR, Tailwind, and React integration.
+- `npm run build` — Generate the optimized production build (SSR + static assets).
+- `npm run preview` — Serve the build output locally to verify production behavior.
+- `npm run astro` — Direct access to the Astro CLI for advanced commands.
+- `npm run lint` — Run ESLint (Astro + React + TypeScript rules).
+- `npm run lint:fix` — Auto-fix lint issues where possible.
+- `npm run format` — Run Prettier (with Astro plugin) across the repo.
 
 ## 6. Project Scope
-
-**In Scope (MVP)**
-
-- Pokémon-only catalog search with filters, detail views, and fallback data source.
-- Authenticated collection management (add/edit/delete, duplicate handling, confirmations, toasts, skeleton loaders).
-- Collection insights: grouping by set, pagination, rarity & pricing display, total portfolio value, profile summaries.
-- Mobile-first UI with light/dark themes, API availability banner, and graceful offline handling.
-- Supabase Row Level Security, 24-hour cached API proxy, and Privacy/Terms pages.
-
-**Out of Scope (for now)**
-
-- Non-Pokémon franchises, social/sharing workflows, marketplace integrations, OCR scanning, import/export, mobile native apps, or advanced analytics beyond total value (see “Future Considerations” in [docs/prd.md](docs/prd.md)).
+- **In Scope (MVP)**: Pokémon-only catalog browsing, advanced search/filtering, user authentication, collection CRUD with condition/grade tracking, custom lists (≤10 per user), market price display with freshness indicator, daily tcgcsv.com imports via pg_cron, pokemontcg.io enrichment, admin import dashboard. (See FR-001 to FR-008 in [docs/prd.md](docs/prd.md).)
+- **Out of Scope (Post-MVP)**: Collection export, PWA/offline support, social auth, currency selector, multi-language UX, trend analytics, marketplace features (see “Out of Scope” in [docs/prd.md](docs/prd.md)).
+- **Explicitly Excluded**: OCR scanning, paid APIs, non-Pokémon TCG titles, price trend charts, reseller integrations.
 
 ## 7. Project Status
-
-- ✅ **Architecture settled:** Monorepo with Astro + Supabase, documented in [docs/tech-stack.md](docs/tech-stack.md).
-- 🚧 **MVP implementation underway:** Focused on FR-005–FR-022 (search + collection lifecycle) and Supabase auth flows (FR-001–FR-006).
-- 🎯 **Success metrics defined:** User adoption, weekly engagement, collection activity, and error rate targets (see Section 6 of the PRD).
-- 📍 **Next priorities:** Complete caching layer (FR-011), API degraded-mode banner (FR-026), and baseline accessibility tests.
+- **Version**: 0.0.1 (pre-release, under active development).
+- **Milestones**: MVP feature set defined in [docs/prd.md](docs/prd.md); architecture, data flow, and hosting plans documented in [docs/tech-stack.md](docs/tech-stack.md).
+- **Next Steps**: Implement Supabase-backed data import pipeline, build authenticated collection flows, set up CI/CD (GitHub Actions + Azure Static Web Apps), and add automated testing per future [testing guidelines](.github/instructions/testing.instructions.md) once core views stabilize.
 
 ## 8. License
+Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for full terms.
 
-Distributed under the [Apache License 2.0](LICENSE). Use, modification, and distribution are permitted under the terms outlined therein.
