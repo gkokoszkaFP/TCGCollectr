@@ -68,6 +68,39 @@ export interface UpdatePasswordRequestDTO {
   password: string;
 }
 
+/**
+ * Command model for user registration
+ * Encapsulates all data needed for registration processing
+ */
+export interface RegisterCommand {
+  email: string;
+  password: string;
+  ipAddress: string;
+  userAgent?: string;
+}
+
+/**
+ * Command model for user login
+ * Encapsulates all data needed for login processing
+ */
+export interface LoginCommand {
+  email: string;
+  password: string;
+  ipAddress: string;
+  userAgent?: string;
+}
+
+/**
+ * Command model for password reset request
+ * Encapsulates all data needed for reset password processing
+ */
+export interface ResetPasswordCommand {
+  email: string;
+  ipAddress: string;
+  userAgent?: string;
+  redirectTo: string;
+}
+
 // =============================================================================
 // PROFILE DTOs
 // =============================================================================
@@ -347,6 +380,7 @@ export type SortOrder = "asc" | "desc";
 export type AnalyticsEventType =
   | "user_registered"
   | "user_login"
+  | "password_reset_requested"
   | "card_added"
   | "card_removed"
   | "card_viewed"

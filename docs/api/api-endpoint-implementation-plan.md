@@ -4,30 +4,30 @@ Before we begin, review the following information:
 
 1. Route API specification:
    <route_api_specification>
-   {{route-api-specification}} <- copy endpoint description from api-plan.md
+   {{route-api-specification}}
    </route_api_specification>
 
 2. Related database resources:
    <related_db_resources>
-   **[db-plan-tables.md](../../db-plan-tables.md)**
-   **[db-plan-relationships.md](../../db-plan-relationships.md)**
+   **[db-plan-tables.md](../db-plan-tables.md)**
+   **[db-plan-relationships.md](../db-plan-relationships.md)**
    </related_db_resources>
 
 3. Type definitions:
    <type_definitions>
-   **[types.ts](../../../src/types.ts)**
+   **[types.ts](../../src/types.ts)**
    </type_definitions>
 
 4. Tech stack:
    <tech_stack>
-   **[tech-stack.md](../../tech-stack.md)**
+   **[tech-stack.md](../tech-stack.md)**
    </tech_stack>
 
 5. Implementation rules:
    <implementation_rules>
-   **[shared.instructions.md](../../../.github/instructions/shared.instructions.md)**
-   **[backend.instructions.md](../../../.github/instructions/backend.instructions.md)**
-   **[astro.instructions.md](../../../.github/instructions/astro.instructions.md)**
+   **[shared.instructions.md](../../.github/instructions/shared.instructions.md)**
+   **[backend.instructions.md](../../.github/instructions/backend.instructions.md)**
+   **[astro.instructions.md](../../.github/instructions/astro.instructions.md)**
    </implementation_rules>
 
 Your task is to create a comprehensive implementation plan for the REST API endpoint. Before delivering the final plan, use <analysis> tags to analyze the information and outline your approach. In this analysis, ensure that:
@@ -118,5 +118,5 @@ The final output should be a well-organized implementation plan in markdown form
 
 The final output should consist solely of the implementation plan in markdown format and should not duplicate or repeat any work done in the analysis section.
 
-Remember to save your implementation plan as docs/api/TTT-implementation-plan.md. Ensure the plan is detailed, clear, and provides comprehensive guidance for the development team.
+Remember to save your implementation plan as docs/api/{endpoint-name}-implementation-plan.md. Ensure the plan is detailed, clear, and provides comprehensive guidance for the development team.
 ```

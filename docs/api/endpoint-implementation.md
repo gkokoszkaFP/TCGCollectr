@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-{{endpoint-implementation-plan}} <- add reference to endpoint implementation plan (e.g., @generations-endpoint-implementation-plan.md)
+**[post-auth-update-password-implementation-plan.md](./post-auth-update-password-implementation-plan.md)**
 </implementation_plan>
 
 <types>
@@ -44,9 +44,13 @@ Now perform the following steps to implement the REST API endpoint:
    - Provide clear and informative error messages in responses.
    - Handle potential exceptions that may occur during processing.
 
-4. Testing considerations:
-   - Consider edge cases and potential issues that should be tested.
-   - Ensure the implementation covers all scenarios mentioned in the plan.
+4. Manual testing with curl:
+   - Test successful request paths using curl commands
+   - Verify error handling with invalid inputs
+   - Confirm proper HTTP status codes and response formats
+   - Validate header requirements and security measures
+   - Document curl commands used for testing
+   - Note: Automated test cases for endpoints will be planned separately as a dedicated testing phase
 
 5. Documentation:
    - Add clear comments to explain complex logic or important decisions
