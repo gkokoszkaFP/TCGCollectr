@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-**[profile-implementation-plan.md](./profile-implementation-plan.md)**
+**[patch-profile-implementation-plan.md](./patch-profile-implementation-plan.md)**
 </implementation_plan>
 
 <types>
@@ -17,7 +17,7 @@ First, carefully review the provided implementation plan:
 </implementation_rules>
 
 <implementation_approach>
-Implement a maximum of 3 steps from the implementation plan, briefly summarize what you've done, and describe the plan for the next 3 actions - stop work at this point and wait for my feedback.
+Implement a maximum of 3 steps from the implementation plan, briefly summarize what you've done, and describe the plan for the next 2 actions - stop work at this point and wait for my feedback. **Note**: Integration tests (Jest/Playwright) are NOT required.
 </implementation_approach>
 
 Now perform the following steps to implement the REST API endpoint:
@@ -50,7 +50,7 @@ Now perform the following steps to implement the REST API endpoint:
    - Confirm proper HTTP status codes and response formats
    - Validate header requirements and security measures
    - Minimal cURL commands documented in [docs/tests/postman-curls.md](../tests/postman-curls.md) for direct Postman import
-   - Note: Automated test cases for endpoints will be planned separately as a dedicated testing phase
+   - **Note**: Integration tests (Jest/Playwright) are not required for this endpoint and will not be created as part of this implementation.
 
 5. Documentation:
    - Add clear comments to explain complex logic or important decisions

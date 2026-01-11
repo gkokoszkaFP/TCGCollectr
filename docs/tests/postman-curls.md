@@ -1,4 +1,4 @@
-# Postman cURL Commands - GET /api/profile
+# Postman cURL Commands - Profile API
 
 Minimal cURL commands for manual testing in Postman.
 
@@ -8,7 +8,7 @@ Minimal cURL commands for manual testing in Postman.
 - Supabase: `npx supabase start`
 - Dev server: `npm run dev`
 
-## Test Cases
+## GET /api/profile Test Cases
 
 ### 1. Success - Valid Token
 
@@ -93,3 +93,155 @@ Option B - Clean re-register (best practice):
 1.  Delete the test user from `auth.users` table
 2.  Re-register via `/api/auth/register`
 3.  Trigger should auto-create profile this time
+
+## PATCH /api/profile Test Cases
+
+### 1. Success - Update onboarding_completed
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"onboarding_completed": true}'
+```
+
+Expected: 200 OK with updated ProfileDTO
+
+### 2. Success - Update favorite_type
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": "water"}'
+```
+
+Expected: 200 OK with updated ProfileDTO
+
+### 3. Success - Update favorite_set
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_set": "sv05"}'
+```
+
+Expected: 200 OK with updated ProfileDTO (replace `sv05` with valid set ID)
+
+### 4. Success - Update multiple fields
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"onboarding_completed": true, "favorite_type": "fire", "favorite_set": "sv04"}'
+```
+
+Expected: 200 OK with updated ProfileDTO
+
+### 5. Success - Clear favorite_type by setting to null
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": null}'
+```
+
+Expected: 200 OK with ProfileDTO (favorite_type cleared)
+
+### 6. Success - Clear favorite_set by setting to null
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_set": null}'
+```
+
+Expected: 200 OK with ProfileDTO (favorite_set cleared)
+
+### 7. Validation Error - Invalid favorite_type
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": "invalid_type"}'
+```
+
+Expected: 400 VALIDATION_ERROR with message about invalid type
+
+### 8. Validation Error - Non-existent favorite_set
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_set": "nonexistent_set_id"}'
+```
+
+Expected: 400 VALIDATION_ERROR with message about set not found
+
+### 9. Validation Error - Empty payload (no fields provided)
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Expected: 400 VALIDATION_ERROR with message about at least one field required
+
+### 10. Validation Error - Invalid JSON
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{invalid json'
+```
+
+Expected: 400 VALIDATION_ERROR with message about invalid JSON
+
+### 11. Unauthorized - Missing Authorization header
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": "water"}'
+```
+
+Expected: 401 UNAUTHORIZED
+
+### 12. Unauthorized - Invalid token
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer invalid_token" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": "water"}'
+```
+
+Expected: 401 UNAUTHORIZED
+
+### 13. Not Found - Profile missing
+
+```bash
+curl -X PATCH http://localhost:3000/api/profile \
+  -H "Authorization: Bearer VALID_TOKEN_WITHOUT_PROFILE" \
+  -H "Content-Type: application/json" \
+  -d '{"favorite_type": "water"}'
+```
+
+Expected: 404 NOT_FOUND
+
+## Notes
+
+- Replace `YOUR_ACCESS_TOKEN` with actual token from login
+- `Cache-Control: no-store` header present in all responses
+- Copy-paste directly into Postman
+- Valid Pokémon types: `fire`, `water`, `grass`, `lightning`, `psychic`, `fighting`, `darkness`, `metal`, `fairy`, `dragon`, `colorless`, `unknown`
+- Valid set IDs can be queried from Supabase `sets` table or discovered via API
