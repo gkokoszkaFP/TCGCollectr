@@ -1,9 +1,11 @@
 # API Endpoint Implementation Plan: PATCH /api/profile
 
 ## 1. Endpoint Overview
+
 Patch allows the authenticated user to mutate their own profile fields such as onboarding completion, favorite Pokémon type, or preferred set without creating new resources. The endpoint keeps auditing fields (`updated_at`) in sync and returns the full `ProfileDTO` payload along with the denormalized `total_cards_count`.
 
 ## 2. Request Details
+
 - HTTP Method: PATCH
 - URL: `/api/profile`
 - Headers:
@@ -18,6 +20,7 @@ Patch allows the authenticated user to mutate their own profile fields such as o
     "favorite_set": "sv05"
   }
   ```
+
   - Validation schema (new `UpdateProfileRequestDTO`/`updateProfileSchema`):
     - `onboarding_completed` &ndash; optional boolean flag
     - `favorite_type` &ndash; optional string that must match one of the canonical Pokémon TCG types (`fire`, `water`, `grass`, `lightning`, `psychic`, `fighting`, `darkness`, `metal`, `fairy`, `dragon`, `colorless`, `unknown`) or `null`
@@ -26,6 +29,7 @@ Patch allows the authenticated user to mutate their own profile fields such as o
     - Additional guard: disallow non-JSON payloads by checking `request.json()` success and returning 400 for parse errors.
 
 ## 3. Response Details
+
 - DTOs in play:
   - `UpdateProfileRequestDTO` (input)
   - `ProfileDTO` (output, derived from `Tables<'profiles'>`)
@@ -39,6 +43,7 @@ Patch allows the authenticated user to mutate their own profile fields such as o
 - Headers: respond with `Content-Type: application/json` and `Cache-Control: no-store` to keep profile data from being cached.
 
 ## 4. Data Flow
+
 1. Middleware ensures `context.locals.supabase` exists (Supabase client bound to request).
 2. `PATCH` handler parses the `Authorization` header and calls `supabase.auth.getUser()` (mirrors the existing GET logic) to retrieve the authenticated user ID; return 401 if verification fails.
 3. Parse and validate the JSON body against `updateProfileSchema`; reject invalid payloads (including favorite type/set validation) with a structured 400 error.
@@ -51,6 +56,7 @@ Patch allows the authenticated user to mutate their own profile fields such as o
 6. Handler returns 200 with the updated `ProfileDTO`; for consistent formatting reuse `createErrorResponse` for errors and set cache-control header on success/400 responses.
 
 ## 5. Security Considerations
+
 - Authorization:
   - Enforce bearer token parsing/format verification (`parseBearerToken` helper or inline logic) before touching Supabase.
   - Avoid using the service role key; rely on `context.locals.supabase` created via middleware.
@@ -67,6 +73,7 @@ Patch allows the authenticated user to mutate their own profile fields such as o
   - `Cache-Control: no-store` on both success and error responses to keep sensitive profile data client-specific.
 
 ## 6. Error Handling
+
 - Invalid JSON input & missing fields → 400 `VALIDATION_ERROR`; respond with details about which field failed `updateProfileSchema`.
 - `favorite_type` not in allowed set → 400 `VALIDATION_ERROR` referencing the invalid type.
 - `favorite_set` supplied but not found → 400 `VALIDATION_ERROR` referencing the missing set ID.
@@ -77,12 +84,14 @@ Patch allows the authenticated user to mutate their own profile fields such as o
 - Supabase update/query failure → 500 `INTERNAL_ERROR` with sanitized details; propagate as `ProfileServiceError` to keep handler logic uniform.
 
 ## 7. Performance
+
 - Update touches only the `profiles` row for the authenticated user; index on `id` guarantees constant-time lookups.
 - Validating `favorite_set` incurs one extra indexed lookup on `sets.id`; acceptable because plan will hit cache/new set exact match and the table is small.
 - Recomputing `total_cards_count` reuses existing aggregation logic; if it becomes expensive, consider materializing the count in a view or using the denormalized `total_cards_count` field directly instead of running the aggregate.
 - Response payload remains compact (single profile row) and uses `Cache-Control: no-store` to minimize client caching issues.
 
 ## 8. Implementation Steps
+
 1. **Validation layer**
    - Create `src/lib/validation/profile.schema.ts` (or extend existing module) with `updateProfileSchema`:
      - Define `favoriteTypeEnum` and accept `null` (or undefined). Normalize strings to lowercase.
