@@ -93,7 +93,7 @@ export async function getProfileWithTotals(supabase: SupabaseClient, userId: str
         details: profileError.details,
         userId,
       };
-      
+
       // Log to server console for debugging
       // eslint-disable-next-line no-console
       console.error("Profile query error:", errorDetails);
