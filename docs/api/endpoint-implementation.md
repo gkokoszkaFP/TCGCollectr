@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-**[auth-logout-implementation-plan.md](./auth-logout-implementation-plan.md)**
+**[post-auth-update-password-implementation-plan.md](./post-auth-update-password-implementation-plan.md)**
 </implementation_plan>
 
 <types>

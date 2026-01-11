@@ -6,7 +6,13 @@
  * error handling across all authentication endpoints.
  */
 
-import type { AuthResponseDTO, ErrorResponseDTO, RegisterCommand, LoginCommand } from "../../types";
+import type {
+  AuthResponseDTO,
+  ErrorResponseDTO,
+  RegisterCommand,
+  LoginCommand,
+  ResetPasswordCommand,
+} from "../../types";
 import type { SupabaseClient } from "../../db/supabase.client";
 
 /**
@@ -20,6 +26,7 @@ export const AuthErrorCodes = {
   INTERNAL_ERROR: "INTERNAL_ERROR",
   ALREADY_AUTHENTICATED: "ALREADY_AUTHENTICATED",
   UNAUTHORIZED: "UNAUTHORIZED",
+  RESET_NOT_ALLOWED: "RESET_NOT_ALLOWED",
 } as const;
 
 /**
@@ -259,6 +266,117 @@ export async function loginUser(command: LoginCommand, supabase: SupabaseClient)
       500
     );
   }
+}
+
+/**
+ * Request a password reset email for a user
+ *
+ * This function:
+ * 1. Calls Supabase auth.resetPasswordForEmail with the email and redirect URL
+ * 2. Handles Supabase errors and maps them to application error codes
+ * 3. Always succeeds silently to prevent email enumeration
+ *
+ * @param command - Reset password command with validated email and redirect URL
+ * @param supabase - Supabase client instance from context.locals
+ * @returns Promise<void> on success
+ * @throws AuthServiceError for various failure scenarios
+ *
+ * @example
+ * try {
+ *   await requestPasswordReset(command, supabase);
+ *   return new Response(JSON.stringify({ message: "Password reset email sent" }), { status: 200 });
+ * } catch (error) {
+ *   if (error instanceof AuthServiceError) {
+ *     return new Response(JSON.stringify(error.toErrorResponse()), {
+ *       status: error.statusCode
+ *     });
+ *   }
+ *   throw error;
+ * }
+ */
+export async function requestPasswordReset(command: ResetPasswordCommand, supabase: SupabaseClient): Promise<void> {
+  try {
+    // Call Supabase auth.resetPasswordForEmail
+    const { error } = await supabase.auth.resetPasswordForEmail(command.email, {
+      redirectTo: command.redirectTo,
+    });
+
+    // Handle Supabase errors
+    if (error) {
+      // Check for service-level errors (disabled, rate limited by Supabase, etc.)
+      if (error.message.toLowerCase().includes("disabled") || error.message.toLowerCase().includes("not enabled")) {
+        throw new AuthServiceError(
+          AuthErrorCodes.RESET_NOT_ALLOWED,
+          "Password reset is not currently available. Please try again later.",
+          500,
+          { originalError: error.message }
+        );
+      }
+
+      // For any other error, log but return success to prevent enumeration
+      // In a real scenario, this would be logged to observability platform
+      void logPasswordResetFailure(command.email, error.message);
+
+      // Don't throw - return success silently to prevent email enumeration
+      return;
+    }
+  } catch (error) {
+    // Re-throw AuthServiceError as-is
+    if (error instanceof AuthServiceError) {
+      throw error;
+    }
+
+    // Log unexpected errors but don't expose to client
+    void logPasswordResetError(command.email, error instanceof Error ? error.message : "Unknown error");
+
+    // Don't throw - return success silently to prevent email enumeration
+  }
+}
+
+/**
+ * Log password reset request failure for debugging
+ * @internal
+ */
+function logPasswordResetFailure(email: string, errorMessage: string): Promise<void> {
+  return Promise.resolve().then(() => {
+    // Intentionally fire-and-forget to not block response
+    // In production, this would send to observability platform
+    // eslint-disable-next-line no-console
+    console.error({
+      event: "reset_password_request_failed",
+      email: maskEmail(email),
+      error: errorMessage,
+    });
+  });
+}
+
+/**
+ * Log password reset request error for debugging
+ * @internal
+ */
+function logPasswordResetError(email: string, errorMessage: string): Promise<void> {
+  return Promise.resolve().then(() => {
+    // Intentionally fire-and-forget to not block response
+    // In production, this would send to observability platform
+    // eslint-disable-next-line no-console
+    console.error({
+      event: "reset_password_request_error",
+      email: maskEmail(email),
+      error: errorMessage,
+    });
+  });
+}
+
+/**
+ * Mask email address for logging purposes
+ * Replaces domain with masked value to prevent exposure
+ *
+ * @param email - Email address to mask
+ * @returns Masked email (e.g., "user@***")
+ */
+function maskEmail(email: string): string {
+  const [localPart] = email.split("@");
+  return `${localPart}@***`;
 }
 
 /**
