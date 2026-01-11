@@ -2,13 +2,13 @@
 
 ## 1. Resources
 
-| Resource          | Database Table     | Description                                      |
-| ----------------- | ------------------ | ------------------------------------------------ |
-| Profiles          | `profiles`         | User profile information and preferences         |
-| Sets              | `sets`             | Pokémon TCG sets/expansions                      |
-| Cards             | `cards`            | Card metadata cached from TCGDex API             |
-| User Cards        | `user_cards`       | User's collection entries with variants/quantity |
-| Analytics Events  | `analytics_events` | User action tracking for metrics                 |
+| Resource         | Database Table     | Description                                      |
+| ---------------- | ------------------ | ------------------------------------------------ |
+| Profiles         | `profiles`         | User profile information and preferences         |
+| Sets             | `sets`             | Pokémon TCG sets/expansions                      |
+| Cards            | `cards`            | Card metadata cached from TCGDex API             |
+| User Cards       | `user_cards`       | User's collection entries with variants/quantity |
+| Analytics Events | `analytics_events` | User action tracking for metrics                 |
 
 ---
 
@@ -49,12 +49,12 @@ Register a new user account.
 
 **Error Responses:**
 
-| Status | Code                  | Message                               |
-| ------ | --------------------- | ------------------------------------- |
-| 400    | VALIDATION_ERROR      | Invalid email format                  |
-| 400    | VALIDATION_ERROR      | Password does not meet requirements   |
-| 409    | EMAIL_EXISTS          | Email address already registered      |
-| 429    | RATE_LIMIT_EXCEEDED   | Too many registration attempts        |
+| Status | Code                | Message                             |
+| ------ | ------------------- | ----------------------------------- |
+| 400    | VALIDATION_ERROR    | Invalid email format                |
+| 400    | VALIDATION_ERROR    | Password does not meet requirements |
+| 409    | EMAIL_EXISTS        | Email address already registered    |
+| 429    | RATE_LIMIT_EXCEEDED | Too many registration attempts      |
 
 ---
 
@@ -89,23 +89,34 @@ Authenticate an existing user.
 
 **Error Responses:**
 
-| Status | Code                  | Message                        |
-| ------ | --------------------- | ------------------------------ |
-| 400    | VALIDATION_ERROR      | Email and password required    |
-| 401    | INVALID_CREDENTIALS   | Invalid email or password      |
-| 429    | RATE_LIMIT_EXCEEDED   | Too many login attempts        |
+| Status | Code                | Message                     |
+| ------ | ------------------- | --------------------------- |
+| 400    | VALIDATION_ERROR    | Email and password required |
+| 401    | INVALID_CREDENTIALS | Invalid email or password   |
+| 429    | RATE_LIMIT_EXCEEDED | Too many login attempts     |
 
 ---
 
 #### POST /api/auth/logout
 
-Log out the current user.
+Revoke the current user's session and log them out.
+
+**Description:**
+
+- Invalidates the current Supabase session by revoking the supplied access token
+- Forces credential rotation on the next client request
+- Tracks logout event in analytics (anonymized IP hash)
+- Prevents response caching via `Cache-Control: no-store` header
 
 **Headers:**
 
 ```
 Authorization: Bearer <access_token>
+Content-Type: application/json
 ```
+
+**Request Body:**
+None
 
 **Response (200 OK):**
 
@@ -115,11 +126,26 @@ Authorization: Bearer <access_token>
 }
 ```
 
+**Response Headers:**
+
+- `Cache-Control: no-store` - Prevents caching of auth state
+- `Content-Type: application/json`
+
 **Error Responses:**
 
-| Status | Code           | Message              |
-| ------ | -------------- | -------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated    |
+| Status | Code             | Message                                            | Description                                           |
+| ------ | ---------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| 400    | VALIDATION_ERROR | Authorization header is required with Bearer token | Missing or malformed Authorization header             |
+| 401    | UNAUTHORIZED     | Token is invalid or expired                        | Token rejected by Supabase or session already revoked |
+| 500    | INTERNAL_ERROR   | An unexpected error occurred during logout         | Server error, check logs for details                  |
+
+**Notes:**
+
+- The `Authorization` header is required and must follow the format: `Bearer <token>`
+- Session revocation is synchronous; the access token becomes invalid immediately
+- Analytics events are tracked asynchronously and do not block the response
+- IP addresses are hashed (SHA-256) before storage for privacy compliance
+- No sensitive data is echoed in error responses
 
 ---
 
@@ -145,10 +171,10 @@ Request a password reset email.
 
 **Error Responses:**
 
-| Status | Code                  | Message                        |
-| ------ | --------------------- | ------------------------------ |
-| 400    | VALIDATION_ERROR      | Invalid email format           |
-| 429    | RATE_LIMIT_EXCEEDED   | Too many reset attempts        |
+| Status | Code                | Message                 |
+| ------ | ------------------- | ----------------------- |
+| 400    | VALIDATION_ERROR    | Invalid email format    |
+| 429    | RATE_LIMIT_EXCEEDED | Too many reset attempts |
 
 ---
 
@@ -180,10 +206,10 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code                  | Message                             |
-| ------ | --------------------- | ----------------------------------- |
-| 400    | VALIDATION_ERROR      | Password does not meet requirements |
-| 401    | UNAUTHORIZED          | Invalid or expired token            |
+| Status | Code             | Message                             |
+| ------ | ---------------- | ----------------------------------- |
+| 400    | VALIDATION_ERROR | Password does not meet requirements |
+| 401    | UNAUTHORIZED     | Invalid or expired token            |
 
 ---
 
@@ -215,10 +241,10 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code           | Message                |
-| ------ | -------------- | ---------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated      |
-| 404    | NOT_FOUND      | Profile not found      |
+| Status | Code         | Message           |
+| ------ | ------------ | ----------------- |
+| 401    | UNAUTHORIZED | Not authenticated |
+| 404    | NOT_FOUND    | Profile not found |
 
 ---
 
@@ -258,11 +284,11 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code              | Message                           |
-| ------ | ----------------- | --------------------------------- |
-| 400    | VALIDATION_ERROR  | Invalid favorite_type value       |
-| 401    | UNAUTHORIZED      | Not authenticated                 |
-| 404    | NOT_FOUND         | Profile not found                 |
+| Status | Code             | Message                     |
+| ------ | ---------------- | --------------------------- |
+| 400    | VALIDATION_ERROR | Invalid favorite_type value |
+| 401    | UNAUTHORIZED     | Not authenticated           |
+| 404    | NOT_FOUND        | Profile not found           |
 
 ---
 
@@ -274,14 +300,14 @@ Get all available card sets with pagination.
 
 **Query Parameters:**
 
-| Parameter | Type    | Default | Description                                   |
-| --------- | ------- | ------- | --------------------------------------------- |
-| page      | integer | 1       | Page number (1-indexed)                       |
-| limit     | integer | 20      | Items per page (max: 100)                     |
-| sort      | string  | name    | Sort field: `name`, `release_date`, `series`  |
-| order     | string  | asc     | Sort order: `asc`, `desc`                     |
-| search    | string  | -       | Filter by set name (partial match)            |
-| series    | string  | -       | Filter by series name (exact match)           |
+| Parameter | Type    | Default | Description                                  |
+| --------- | ------- | ------- | -------------------------------------------- |
+| page      | integer | 1       | Page number (1-indexed)                      |
+| limit     | integer | 20      | Items per page (max: 100)                    |
+| sort      | string  | name    | Sort field: `name`, `release_date`, `series` |
+| order     | string  | asc     | Sort order: `asc`, `desc`                    |
+| search    | string  | -       | Filter by set name (partial match)           |
+| series    | string  | -       | Filter by series name (exact match)          |
 
 **Response (200 OK):**
 
@@ -309,9 +335,9 @@ Get all available card sets with pagination.
 
 **Error Responses:**
 
-| Status | Code              | Message                          |
-| ------ | ----------------- | -------------------------------- |
-| 400    | VALIDATION_ERROR  | Invalid pagination parameters    |
+| Status | Code             | Message                       |
+| ------ | ---------------- | ----------------------------- |
+| 400    | VALIDATION_ERROR | Invalid pagination parameters |
 
 ---
 
@@ -321,9 +347,9 @@ Get a specific set by ID.
 
 **Path Parameters:**
 
-| Parameter | Type   | Description            |
-| --------- | ------ | ---------------------- |
-| setId     | string | Unique set identifier  |
+| Parameter | Type   | Description           |
+| --------- | ------ | --------------------- |
+| setId     | string | Unique set identifier |
 
 **Response (200 OK):**
 
@@ -344,9 +370,9 @@ Get a specific set by ID.
 
 **Error Responses:**
 
-| Status | Code       | Message             |
-| ------ | ---------- | ------------------- |
-| 404    | NOT_FOUND  | Set not found       |
+| Status | Code      | Message       |
+| ------ | --------- | ------------- |
+| 404    | NOT_FOUND | Set not found |
 
 ---
 
@@ -362,9 +388,9 @@ Authorization: Bearer <access_token>
 
 **Path Parameters:**
 
-| Parameter | Type   | Description            |
-| --------- | ------ | ---------------------- |
-| setId     | string | Unique set identifier  |
+| Parameter | Type   | Description           |
+| --------- | ------ | --------------------- |
+| setId     | string | Unique set identifier |
 
 **Response (200 OK):**
 
@@ -380,10 +406,10 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code           | Message             |
-| ------ | -------------- | ------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated   |
-| 404    | NOT_FOUND      | Set not found       |
+| Status | Code         | Message           |
+| ------ | ------------ | ----------------- |
+| 401    | UNAUTHORIZED | Not authenticated |
+| 404    | NOT_FOUND    | Set not found     |
 
 ---
 
@@ -395,16 +421,16 @@ Search and browse cards with filtering and pagination.
 
 **Query Parameters:**
 
-| Parameter | Type    | Default | Description                                       |
-| --------- | ------- | ------- | ------------------------------------------------- |
-| page      | integer | 1       | Page number (1-indexed)                           |
-| limit     | integer | 20      | Items per page (max: 100)                         |
-| sort      | string  | name    | Sort field: `name`, `card_number`, `rarity`       |
-| order     | string  | asc     | Sort order: `asc`, `desc`                         |
-| search    | string  | -       | Search by card name (partial match)               |
-| set_id    | string  | -       | Filter by set ID (exact match)                    |
-| types     | string  | -       | Filter by Pokémon types (comma-separated)         |
-| rarity    | string  | -       | Filter by rarity (exact match)                    |
+| Parameter | Type    | Default | Description                                 |
+| --------- | ------- | ------- | ------------------------------------------- |
+| page      | integer | 1       | Page number (1-indexed)                     |
+| limit     | integer | 20      | Items per page (max: 100)                   |
+| sort      | string  | name    | Sort field: `name`, `card_number`, `rarity` |
+| order     | string  | asc     | Sort order: `asc`, `desc`                   |
+| search    | string  | -       | Search by card name (partial match)         |
+| set_id    | string  | -       | Filter by set ID (exact match)              |
+| types     | string  | -       | Filter by Pokémon types (comma-separated)   |
+| rarity    | string  | -       | Filter by rarity (exact match)              |
 
 **Response (200 OK):**
 
@@ -434,10 +460,10 @@ Search and browse cards with filtering and pagination.
 
 **Error Responses:**
 
-| Status | Code                  | Message                          |
-| ------ | --------------------- | -------------------------------- |
-| 400    | VALIDATION_ERROR      | Invalid pagination parameters    |
-| 429    | RATE_LIMIT_EXCEEDED   | Search rate limit exceeded       |
+| Status | Code                | Message                       |
+| ------ | ------------------- | ----------------------------- |
+| 400    | VALIDATION_ERROR    | Invalid pagination parameters |
+| 429    | RATE_LIMIT_EXCEEDED | Search rate limit exceeded    |
 
 ---
 
@@ -447,9 +473,9 @@ Get a specific card by ID.
 
 **Path Parameters:**
 
-| Parameter | Type   | Description             |
-| --------- | ------ | ----------------------- |
-| cardId    | string | Unique card identifier  |
+| Parameter | Type   | Description            |
+| --------- | ------ | ---------------------- |
+| cardId    | string | Unique card identifier |
 
 **Response (200 OK):**
 
@@ -477,9 +503,9 @@ Get a specific card by ID.
 
 **Error Responses:**
 
-| Status | Code       | Message             |
-| ------ | ---------- | ------------------- |
-| 404    | NOT_FOUND  | Card not found      |
+| Status | Code      | Message        |
+| ------ | --------- | -------------- |
+| 404    | NOT_FOUND | Card not found |
 
 ---
 
@@ -497,16 +523,16 @@ Authorization: Bearer <access_token>
 
 **Query Parameters:**
 
-| Parameter  | Type    | Default | Description                                        |
-| ---------- | ------- | ------- | -------------------------------------------------- |
-| page       | integer | 1       | Page number (1-indexed)                            |
-| limit      | integer | 20      | Items per page (max: 100)                          |
-| sort       | string  | name    | Sort field: `name`, `created_at`, `quantity`       |
-| order      | string  | asc     | Sort order: `asc`, `desc`                          |
-| set_id     | string  | -       | Filter by set ID                                   |
+| Parameter  | Type    | Default | Description                                                    |
+| ---------- | ------- | ------- | -------------------------------------------------------------- |
+| page       | integer | 1       | Page number (1-indexed)                                        |
+| limit      | integer | 20      | Items per page (max: 100)                                      |
+| sort       | string  | name    | Sort field: `name`, `created_at`, `quantity`                   |
+| order      | string  | asc     | Sort order: `asc`, `desc`                                      |
+| set_id     | string  | -       | Filter by set ID                                               |
 | variant    | string  | -       | Filter by variant: `normal`, `reverse`, `holo`, `firstEdition` |
-| wishlisted | boolean | -       | Filter by wishlist status                          |
-| search     | string  | -       | Search by card name                                |
+| wishlisted | boolean | -       | Filter by wishlist status                                      |
+| search     | string  | -       | Search by card name                                            |
 
 **Response (200 OK):**
 
@@ -543,10 +569,10 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code              | Message                          |
-| ------ | ----------------- | -------------------------------- |
-| 400    | VALIDATION_ERROR  | Invalid query parameters         |
-| 401    | UNAUTHORIZED      | Not authenticated                |
+| Status | Code             | Message                  |
+| ------ | ---------------- | ------------------------ |
+| 400    | VALIDATION_ERROR | Invalid query parameters |
+| 401    | UNAUTHORIZED     | Not authenticated        |
 
 ---
 
@@ -608,15 +634,15 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code                   | Message                                      |
-| ------ | ---------------------- | -------------------------------------------- |
-| 400    | VALIDATION_ERROR       | Invalid variant value                        |
-| 400    | VALIDATION_ERROR       | Quantity must be between 1 and 1000          |
-| 401    | UNAUTHORIZED           | Not authenticated                            |
-| 404    | NOT_FOUND              | Card not found                               |
-| 409    | CARD_LIMIT_EXCEEDED    | Collection limit of 10,000 cards exceeded    |
-| 409    | VARIANT_LIMIT_EXCEEDED | Variant limit of 1,000 copies exceeded       |
-| 429    | RATE_LIMIT_EXCEEDED    | Card addition rate limit exceeded            |
+| Status | Code                   | Message                                   |
+| ------ | ---------------------- | ----------------------------------------- |
+| 400    | VALIDATION_ERROR       | Invalid variant value                     |
+| 400    | VALIDATION_ERROR       | Quantity must be between 1 and 1000       |
+| 401    | UNAUTHORIZED           | Not authenticated                         |
+| 404    | NOT_FOUND              | Card not found                            |
+| 409    | CARD_LIMIT_EXCEEDED    | Collection limit of 10,000 cards exceeded |
+| 409    | VARIANT_LIMIT_EXCEEDED | Variant limit of 1,000 copies exceeded    |
+| 429    | RATE_LIMIT_EXCEEDED    | Card addition rate limit exceeded         |
 
 ---
 
@@ -632,9 +658,9 @@ Authorization: Bearer <access_token>
 
 **Path Parameters:**
 
-| Parameter   | Type | Description                    |
-| ----------- | ---- | ------------------------------ |
-| userCardId  | uuid | Unique collection entry ID     |
+| Parameter  | Type | Description                |
+| ---------- | ---- | -------------------------- |
+| userCardId | uuid | Unique collection entry ID |
 
 **Response (200 OK):**
 
@@ -663,11 +689,11 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code           | Message                     |
-| ------ | -------------- | --------------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated           |
-| 403    | FORBIDDEN      | Access denied               |
-| 404    | NOT_FOUND      | Collection entry not found  |
+| Status | Code         | Message                    |
+| ------ | ------------ | -------------------------- |
+| 401    | UNAUTHORIZED | Not authenticated          |
+| 403    | FORBIDDEN    | Access denied              |
+| 404    | NOT_FOUND    | Collection entry not found |
 
 ---
 
@@ -683,9 +709,9 @@ Authorization: Bearer <access_token>
 
 **Path Parameters:**
 
-| Parameter   | Type | Description                    |
-| ----------- | ---- | ------------------------------ |
-| userCardId  | uuid | Unique collection entry ID     |
+| Parameter  | Type | Description                |
+| ---------- | ---- | -------------------------- |
+| userCardId | uuid | Unique collection entry ID |
 
 **Request Body:**
 
@@ -712,13 +738,13 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code                   | Message                                      |
-| ------ | ---------------------- | -------------------------------------------- |
-| 400    | VALIDATION_ERROR       | Quantity must be between 1 and 1000          |
-| 401    | UNAUTHORIZED           | Not authenticated                            |
-| 403    | FORBIDDEN              | Access denied                                |
-| 404    | NOT_FOUND              | Collection entry not found                   |
-| 409    | CARD_LIMIT_EXCEEDED    | Collection limit of 10,000 cards exceeded    |
+| Status | Code                | Message                                   |
+| ------ | ------------------- | ----------------------------------------- |
+| 400    | VALIDATION_ERROR    | Quantity must be between 1 and 1000       |
+| 401    | UNAUTHORIZED        | Not authenticated                         |
+| 403    | FORBIDDEN           | Access denied                             |
+| 404    | NOT_FOUND           | Collection entry not found                |
+| 409    | CARD_LIMIT_EXCEEDED | Collection limit of 10,000 cards exceeded |
 
 ---
 
@@ -734,19 +760,19 @@ Authorization: Bearer <access_token>
 
 **Path Parameters:**
 
-| Parameter   | Type | Description                    |
-| ----------- | ---- | ------------------------------ |
-| userCardId  | uuid | Unique collection entry ID     |
+| Parameter  | Type | Description                |
+| ---------- | ---- | -------------------------- |
+| userCardId | uuid | Unique collection entry ID |
 
 **Response (204 No Content)**
 
 **Error Responses:**
 
-| Status | Code           | Message                     |
-| ------ | -------------- | --------------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated           |
-| 403    | FORBIDDEN      | Access denied               |
-| 404    | NOT_FOUND      | Collection entry not found  |
+| Status | Code         | Message                    |
+| ------ | ------------ | -------------------------- |
+| 401    | UNAUTHORIZED | Not authenticated          |
+| 403    | FORBIDDEN    | Access denied              |
+| 404    | NOT_FOUND    | Collection entry not found |
 
 ---
 
@@ -781,9 +807,9 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code           | Message             |
-| ------ | -------------- | ------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated   |
+| Status | Code         | Message           |
+| ------ | ------------ | ----------------- |
+| 401    | UNAUTHORIZED | Not authenticated |
 
 ---
 
@@ -799,9 +825,9 @@ Authorization: Bearer <access_token>
 
 **Query Parameters:**
 
-| Parameter       | Type    | Default | Description                                   |
-| --------------- | ------- | ------- | --------------------------------------------- |
-| include_empty   | boolean | false   | Include sets with 0 cards owned               |
+| Parameter     | Type    | Default | Description                     |
+| ------------- | ------- | ------- | ------------------------------- |
+| include_empty | boolean | false   | Include sets with 0 cards owned |
 
 **Response (200 OK):**
 
@@ -830,9 +856,9 @@ Authorization: Bearer <access_token>
 
 **Error Responses:**
 
-| Status | Code           | Message             |
-| ------ | -------------- | ------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated   |
+| Status | Code         | Message           |
+| ------ | ------------ | ----------------- |
+| 401    | UNAUTHORIZED | Not authenticated |
 
 ---
 
@@ -861,9 +887,9 @@ sv04.5-25,Pikachu,Surging Sparks,25/191,◇,1,holo,true
 
 **Error Responses:**
 
-| Status | Code           | Message             |
-| ------ | -------------- | ------------------- |
-| 401    | UNAUTHORIZED   | Not authenticated   |
+| Status | Code         | Message           |
+| ------ | ------------ | ----------------- |
+| 401    | UNAUTHORIZED | Not authenticated |
 
 ---
 
@@ -903,21 +929,21 @@ Authorization: Bearer <access_token>  (optional for anonymous events)
 
 **Error Responses:**
 
-| Status | Code              | Message                    |
-| ------ | ----------------- | -------------------------- |
-| 400    | VALIDATION_ERROR  | Invalid event_type         |
+| Status | Code             | Message            |
+| ------ | ---------------- | ------------------ |
+| 400    | VALIDATION_ERROR | Invalid event_type |
 
 **Supported Event Types:**
 
-| Event Type          | Description                      | Required Data              |
-| ------------------- | -------------------------------- | -------------------------- |
-| user_registered     | User completed registration      | -                          |
-| user_login          | User logged in                   | -                          |
-| card_added          | Card added to collection         | card_id, variant, quantity |
-| card_removed        | Card removed from collection     | card_id                    |
-| card_viewed         | Card details viewed              | card_id                    |
-| search_performed    | Search query executed            | query, filters             |
-| collection_exported | Collection exported to CSV       | card_count                 |
+| Event Type          | Description                  | Required Data              |
+| ------------------- | ---------------------------- | -------------------------- |
+| user_registered     | User completed registration  | -                          |
+| user_login          | User logged in               | -                          |
+| card_added          | Card added to collection     | card_id, variant, quantity |
+| card_removed        | Card removed from collection | card_id                    |
+| card_viewed         | Card details viewed          | card_id                    |
+| search_performed    | Search query executed        | query, filters             |
+| collection_exported | Collection exported to CSV   | card_count                 |
 
 ---
 
@@ -943,16 +969,16 @@ Authorization: Bearer <access_token>
 
 ### Authorization Rules
 
-| Resource            | Anonymous | Authenticated | Notes                                   |
-| ------------------- | --------- | ------------- | --------------------------------------- |
-| Sets (read)         | ✅        | ✅            | Public data                             |
-| Cards (read)        | ✅        | ✅            | Public data                             |
-| Cards (search)      | ✅        | ✅            | Rate limited                            |
-| Profile             | ❌        | ✅ (own only) | RLS enforced                            |
-| Collection          | ❌        | ✅ (own only) | RLS enforced                            |
-| Collection Stats    | ❌        | ✅ (own only) | RLS enforced                            |
-| Export              | ❌        | ✅ (own only) | RLS enforced                            |
-| Analytics (write)   | ✅        | ✅            | Anonymous events have null user_id      |
+| Resource          | Anonymous | Authenticated | Notes                              |
+| ----------------- | --------- | ------------- | ---------------------------------- |
+| Sets (read)       | ✅        | ✅            | Public data                        |
+| Cards (read)      | ✅        | ✅            | Public data                        |
+| Cards (search)    | ✅        | ✅            | Rate limited                       |
+| Profile           | ❌        | ✅ (own only) | RLS enforced                       |
+| Collection        | ❌        | ✅ (own only) | RLS enforced                       |
+| Collection Stats  | ❌        | ✅ (own only) | RLS enforced                       |
+| Export            | ❌        | ✅ (own only) | RLS enforced                       |
+| Analytics (write) | ✅        | ✅            | Anonymous events have null user_id |
 
 ### Row-Level Security (RLS)
 
@@ -980,27 +1006,27 @@ All input validation is performed using Zod schemas.
 
 #### Authentication Validation
 
-| Field    | Rules                                                           |
-| -------- | --------------------------------------------------------------- |
-| email    | Valid email format, required                                    |
-| password | Min 8 characters, required                                      |
+| Field    | Rules                        |
+| -------- | ---------------------------- |
+| email    | Valid email format, required |
+| password | Min 8 characters, required   |
 
 #### Profile Validation
 
-| Field                | Rules                                                      |
-| -------------------- | ---------------------------------------------------------- |
-| onboarding_completed | Boolean                                                    |
-| favorite_type        | Optional string (Pokémon type)                             |
-| favorite_set         | Optional string (valid set ID)                             |
+| Field                | Rules                          |
+| -------------------- | ------------------------------ |
+| onboarding_completed | Boolean                        |
+| favorite_type        | Optional string (Pokémon type) |
+| favorite_set         | Optional string (valid set ID) |
 
 #### Collection Entry Validation
 
-| Field     | Rules                                                             |
-| --------- | ----------------------------------------------------------------- |
-| card_id   | Required, must exist in cards table                               |
-| variant   | Required, enum: `normal`, `reverse`, `holo`, `firstEdition`       |
-| quantity  | Integer, range 1-1000, default 1                                  |
-| wishlisted| Boolean, default false                                            |
+| Field      | Rules                                                       |
+| ---------- | ----------------------------------------------------------- |
+| card_id    | Required, must exist in cards table                         |
+| variant    | Required, enum: `normal`, `reverse`, `holo`, `firstEdition` |
+| quantity   | Integer, range 1-1000, default 1                            |
+| wishlisted | Boolean, default false                                      |
 
 #### Pagination Validation
 
@@ -1068,13 +1094,13 @@ Filename format: `collection_YYYYMMDD_HHMMSS.csv`
 
 ### 4.3 Rate Limiting
 
-| Action                | Limit           | Window    |
-| --------------------- | --------------- | --------- |
-| Card additions        | 100 requests    | 1 minute  |
-| Search queries        | 60 requests     | 1 minute  |
-| Login attempts        | 5 attempts      | 15 minutes|
-| Password reset        | 3 requests      | 1 hour    |
-| Registration          | 5 requests      | 1 hour    |
+| Action         | Limit        | Window     |
+| -------------- | ------------ | ---------- |
+| Card additions | 100 requests | 1 minute   |
+| Search queries | 60 requests  | 1 minute   |
+| Login attempts | 5 attempts   | 15 minutes |
+| Password reset | 3 requests   | 1 hour     |
+| Registration   | 5 requests   | 1 hour     |
 
 Rate limiting is implemented at the middleware level using request tracking.
 
@@ -1108,11 +1134,11 @@ All API errors follow a consistent format:
 
 ### 4.5 Caching Strategy
 
-| Resource    | Cache Strategy                   | TTL      |
-| ----------- | -------------------------------- | -------- |
-| Sets        | Cache on server, refresh daily   | 24 hours |
-| Cards       | Cache on server, refresh daily   | 24 hours |
-| Collection  | No cache (real-time)             | -        |
-| Stats       | Short cache, invalidate on write | 5 min    |
+| Resource   | Cache Strategy                   | TTL      |
+| ---------- | -------------------------------- | -------- |
+| Sets       | Cache on server, refresh daily   | 24 hours |
+| Cards      | Cache on server, refresh daily   | 24 hours |
+| Collection | No cache (real-time)             | -        |
+| Stats      | Short cache, invalidate on write | 5 min    |
 
 Card and set data is cached in the database (`last_synced_at` timestamp). External TCGDex API is used for syncing, not direct user queries.

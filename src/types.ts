@@ -79,6 +79,17 @@ export interface RegisterCommand {
   userAgent?: string;
 }
 
+/**
+ * Command model for user login
+ * Encapsulates all data needed for login processing
+ */
+export interface LoginCommand {
+  email: string;
+  password: string;
+  ipAddress: string;
+  userAgent?: string;
+}
+
 // =============================================================================
 // PROFILE DTOs
 // =============================================================================
