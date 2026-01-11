@@ -5,13 +5,17 @@
 
 -- create function to create profile when user is registered
 create or replace function create_profile_for_user()
-returns trigger as $$
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
-  insert into profiles (id, created_at, updated_at)
+  insert into public.profiles (id, created_at, updated_at)
   values (new.id, now(), now());
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 -- trigger on auth.users insert
 create trigger create_profile_on_auth_user_insert

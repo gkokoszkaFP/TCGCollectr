@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-**[post-auth-update-password-implementation-plan.md](./post-auth-update-password-implementation-plan.md)**
+**[profile-implementation-plan.md](./profile-implementation-plan.md)**
 </implementation_plan>
 
 <types>
@@ -49,7 +49,7 @@ Now perform the following steps to implement the REST API endpoint:
    - Verify error handling with invalid inputs
    - Confirm proper HTTP status codes and response formats
    - Validate header requirements and security measures
-   - Document curl commands used for testing
+   - Minimal cURL commands documented in [docs/tests/postman-curls.md](../tests/postman-curls.md) for direct Postman import
    - Note: Automated test cases for endpoints will be planned separately as a dedicated testing phase
 
 5. Documentation:
