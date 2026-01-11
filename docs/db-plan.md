@@ -1,540 +1,641 @@
 # TCGCollectr Database Schema
 
-## Overview
+## 1. Tables and Columns
 
-This document defines the PostgreSQL database schema for TCGCollectr, a Trading Card Game collection management application. The schema is designed for Supabase and implements Row Level Security (RLS) for data protection.
+### profiles
+
+User profile information linked to Supabase auth users.
+
+| Column               | Type        | Constraints                                                                        | Description                               |
+| -------------------- | ----------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
+| id                   | UUID        | PRIMARY KEY, REFERENCES auth.users(id) ON DELETE CASCADE                           | User ID from auth.users                   |
+| onboarding_completed | BOOLEAN     | DEFAULT FALSE, NOT NULL                                                            | Whether user has completed onboarding     |
+| favorite_type        | TEXT        |                                                                                    | Favorite Pokémon type                     |
+| favorite_set         | TEXT        |                                                                                    | Favorite card set                         |
+| total_cards_count    | INTEGER     | DEFAULT 0, NOT NULL, CHECK (total_cards_count >= 0 AND total_cards_count <= 10000) | Denormalized counter of total cards owned |
+| created_at           | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                                                            | Creation timestamp                        |
+| updated_at           | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                                                            | Last update timestamp                     |
+
+### sets
+
+Pokémon TCG sets/expansions.
+
+| Column         | Type        | Constraints                 | Description                                          |
+| -------------- | ----------- | --------------------------- | ---------------------------------------------------- |
+| id             | TEXT        | PRIMARY KEY                 | Unique set identifier (e.g., 'sv04.5')               |
+| name           | TEXT        | NOT NULL, UNIQUE            | Set name (e.g., 'Surging Sparks')                    |
+| series         | TEXT        |                             | Series the set belongs to (e.g., 'Scarlet & Violet') |
+| total_cards    | INTEGER     | NOT NULL                    | Total cards in the complete set                      |
+| release_date   | DATE        |                             | Official release date of the set                     |
+| logo_url       | TEXT        |                             | URL to set logo image                                |
+| symbol_url     | TEXT        |                             | URL to set symbol image                              |
+| tcg_type       | TEXT        | DEFAULT 'pokemon', NOT NULL | Type of TCG (for future expansion)                   |
+| last_synced_at | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL     | Last sync from TCGDex API                            |
+| created_at     | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL     | Creation timestamp                                   |
+| updated_at     | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL     | Last update timestamp                                |
+
+### cards
+
+Card metadata cached from TCGDex API for offline support.
+
+| Column          | Type        | Constraints                                      | Description                                           |
+| --------------- | ----------- | ------------------------------------------------ | ----------------------------------------------------- |
+| id              | TEXT        | PRIMARY KEY                                      | Unique card identifier from TCGDex (e.g., 'sv04.5-1') |
+| set_id          | TEXT        | NOT NULL, REFERENCES sets(id) ON DELETE RESTRICT | Set this card belongs to                              |
+| name            | TEXT        | NOT NULL                                         | Card name                                             |
+| card_number     | TEXT        | NOT NULL                                         | Card number within set (e.g., '1/102')                |
+| rarity          | TEXT        |                                                  | Rarity symbol or grade (e.g., '◇', '★')               |
+| types           | TEXT[]      |                                                  | Array of Pokémon types (e.g., '{"grass", "water"}')   |
+| hp              | INTEGER     |                                                  | Hit points for Pokémon cards                          |
+| image_url_small | TEXT        |                                                  | URL to small card image from TCGDex CDN               |
+| image_url_large | TEXT        |                                                  | URL to large card image from TCGDex CDN               |
+| tcg_type        | TEXT        | DEFAULT 'pokemon', NOT NULL                      | Type of TCG                                           |
+| last_synced_at  | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                          | Last sync from TCGDex API                             |
+| created_at      | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                          | Creation timestamp                                    |
+| updated_at      | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                          | Last update timestamp                                 |
+
+### user_cards
+
+User's collection entries (owned cards with variants and quantities).
+
+| Column                             | Type        | Constraints                                                                | Description                            |
+| ---------------------------------- | ----------- | -------------------------------------------------------------------------- | -------------------------------------- |
+| id                                 | UUID        | PRIMARY KEY, DEFAULT gen_random_uuid()                                     | Unique identifier for collection entry |
+| user_id                            | UUID        | NOT NULL, REFERENCES profiles(id) ON DELETE CASCADE                        | Owner of this collection entry         |
+| card_id                            | TEXT        | NOT NULL, REFERENCES cards(id) ON DELETE RESTRICT                          | Card in collection                     |
+| variant                            | TEXT        | NOT NULL, CHECK (variant IN ('normal', 'reverse', 'holo', 'firstEdition')) | Card variant/condition type            |
+| quantity                           | INTEGER     | NOT NULL, DEFAULT 1, CHECK (quantity >= 1 AND quantity <= 1000)            | Number of copies owned                 |
+| wishlisted                         | BOOLEAN     | DEFAULT FALSE, NOT NULL                                                    | Whether card is on wishlist            |
+| created_at                         | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                                                    | When card was added to collection      |
+| updated_at                         | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                                                    | Last update timestamp                  |
+| UNIQUE (user_id, card_id, variant) |             |                                                                            | Prevent duplicate card+variant entries |
+
+### analytics_events
+
+Tracking user actions for analytics and success metrics.
+
+| Column     | Type        | Constraints                               | Description                                                                 |
+| ---------- | ----------- | ----------------------------------------- | --------------------------------------------------------------------------- |
+| id         | UUID        | PRIMARY KEY, DEFAULT gen_random_uuid()    | Unique event identifier                                                     |
+| event_type | TEXT        | NOT NULL                                  | Type of event (e.g., 'card_added', 'collection_viewed', 'search_performed') |
+| user_id    | UUID        | REFERENCES profiles(id) ON DELETE CASCADE | User who triggered the event (nullable for anonymous events)                |
+| event_data | JSONB       |                                           | Additional event context and data                                           |
+| created_at | TIMESTAMPTZ | DEFAULT NOW(), NOT NULL                   | When event occurred                                                         |
 
 ---
-
-## 1. Tables
-
-<db-plan-tables>
-**[db-plan-tables.md](./db-plan-tables.md)**
-</db-plan-tables>
 
 ## 2. Relationships
 
-<db-plan-relationships>
-**[db-plan-relationships.md](./db-plan-relationships.md)**
-</db-plan-relationships>
+### Entity Relationship Diagram
+
+```
+┌─────────────────┐
+│   auth.users    │
+│─────────────────│
+│ id (PK)         │
+└────────┬────────┘
+         │
+         │ 1:1
+         │ CASCADE
+         ▼
+┌─────────────────┐       ┌─────────────────┐
+│    profiles     │       │      sets       │
+│─────────────────│       │─────────────────│
+│ id (PK, FK)     │       │ id (PK)         │
+│ created_at      │       │ name            │
+│ updated_at      │       │ series          │
+│ onboarding_done │       │ total_cards     │
+│ favorite_type   │       │ release_date    │
+│ favorite_set    │       │ logo_url        │
+│ total_cards_cnt │       │ symbol_url      │
+└────────┬────────┘       │ last_synced_at  │
+         │                │ created_at      │
+         │ 1:N            │ updated_at      │
+         │ CASCADE        └────────┬────────┘
+         │                        │
+         │                        │ 1:N
+         │                        │ RESTRICT
+         │                        ▼
+         │                ┌─────────────────┐
+         │                │      cards      │
+         │                │─────────────────│
+         │                │ id (PK)         │
+         │                │ set_id (FK)     │
+         │                │ name            │
+         │                │ card_number     │
+         │                │ rarity          │
+         │                │ types (TEXT[])  │
+         │                │ hp              │
+         │                │ image_url_small │
+         │                │ image_url_large │
+         │                │ tcg_type        │
+         │                │ last_synced_at  │
+         │                │ created_at      │
+         │                │ updated_at      │
+         │                └────────┬────────┘
+         │                         │
+         │                         │ 1:N
+         │                         │ RESTRICT
+         ▼                         ▼
+┌─────────────────┐
+│   user_cards    │◀──────┘
+│─────────────────│
+│ id (PK)         │
+│ user_id (FK)    │ N:1
+│ card_id (FK)    │ CASCADE
+│ variant         │
+│ quantity        │
+│ wishlisted      │
+│ created_at      │
+│ updated_at      │
+└─────────────────┘
+ UNIQUE(user_id,
+  card_id,variant)
+
+┌──────────────────────┐
+│ analytics_events     │
+│──────────────────────│
+│ id (PK)              │
+│ event_type           │
+│ user_id (FK) [null]  │
+│ event_data (JSONB)   │
+│ created_at           │
+└──────────────────────┘
+```
+
+### Cardinality Summary
+
+| From       | To               | Type | Notes                                                             |
+| ---------- | ---------------- | ---- | ----------------------------------------------------------------- |
+| auth.users | profiles         | 1:1  | ON DELETE CASCADE - auto-remove profiles when user deleted        |
+| profiles   | user_cards       | 1:N  | ON DELETE CASCADE - remove all collection items when user deleted |
+| sets       | cards            | 1:N  | ON DELETE RESTRICT - prevent set deletion if cards exist          |
+| cards      | user_cards       | 1:N  | ON DELETE RESTRICT - prevent card deletion if in user collections |
+| profiles   | analytics_events | 1:N  | ON DELETE CASCADE (nullable) - remove events when user deleted    |
+
+---
 
 ## 3. Indexes
 
-### Catalog Performance Indexes
+### Primary Indexes for Performance
 
 ```sql
--- Sets: Sort by release date (US-007)
-create index idx_sets_release_date on sets (tcg_type_id, release_date desc nulls last);
+-- Index on user_id for quick collection lookups
+CREATE INDEX idx_user_cards_user_id ON user_cards(user_id);
 
--- Sets: Search by name
-create index idx_sets_name on sets using gin (to_tsvector('english', name));
+-- Composite index for wishlisted cards filtering
+CREATE INDEX idx_user_cards_user_wishlisted ON user_cards(user_id, wishlisted);
 
--- Cards: Composite index for set browsing and card number sorting (US-008)
-create index idx_cards_set_number on cards (set_id, card_number);
+-- Index on card_id for card update queries
+CREATE INDEX idx_user_cards_card_id ON user_cards(card_id);
 
--- Cards: Full-text search on card name (FR-002, US-009)
-create index idx_cards_name_search on cards using gin (to_tsvector('english', name));
+-- Index on set_id for filtering cards by set
+CREATE INDEX idx_cards_set_id ON cards(set_id);
 
--- Cards: Filter by rarity (US-010)
-create index idx_cards_rarity on cards (rarity_id) where rarity_id is not null;
+-- GIN index for efficient array type filtering
+CREATE INDEX idx_cards_types ON cards USING GIN(types);
 
--- Cards: Filter by card type
-create index idx_cards_type on cards (card_type) where card_type is not null;
+-- Text search index for card name partial matching
+CREATE INDEX idx_cards_name_search ON cards USING GIN(name gin_trgm_ops);
 
--- Cards: External ID lookups for import upserts
-create index idx_cards_external_id on cards (tcg_type_id, external_id);
+-- Index on created_at for analytics queries and cleanup
+CREATE INDEX idx_analytics_events_created_at ON analytics_events(created_at);
+
+-- Index for analytics event type filtering
+CREATE INDEX idx_analytics_events_type ON analytics_events(event_type);
+
+-- Index for finding user analytics
+CREATE INDEX idx_analytics_events_user_id ON analytics_events(user_id);
 ```
 
-### Pricing Indexes
+### Index Rationale
 
-```sql
--- Card prices: Lookup by card
-create index idx_card_prices_card on card_prices (card_id);
-
--- Card prices: Filter by fetched date for freshness
-create index idx_card_prices_fetched on card_prices (fetched_at desc);
-```
-
-### Collection Indexes
-
-```sql
--- Collection entries: User's collection queries (primary access pattern)
-create index idx_collection_user on collection_entries (user_id);
-
--- Collection entries: User + card lookups (US-031 duplicate detection)
-create index idx_collection_user_card on collection_entries (user_id, card_id);
-
--- User lists: User's lists
-create index idx_user_lists_user on user_lists (user_id);
-
--- List entries: List contents
-create index idx_list_entries_list on list_entries (list_id);
-
--- List entries: Find lists containing an entry
-create index idx_list_entries_entry on list_entries (collection_entry_id);
-```
-
-### Cache Indexes
-
-```sql
--- API cache: Expiration-based eviction
-create index idx_api_cache_expires on api_cache (expires_at);
-```
-
-### Admin Indexes
-
-```sql
--- Import jobs: Status filtering and date sorting (FR-008, US-025)
-create index idx_import_jobs_status on import_jobs (status, created_at desc);
-```
+| Index                           | Query Pattern                    | Benefit                                        |
+| ------------------------------- | -------------------------------- | ---------------------------------------------- |
+| idx_user_cards_user_id          | Collection view, statistics      | Quick retrieval of all user's cards            |
+| idx_user_cards_user_wishlisted  | Wishlist filter                  | Fast filtered wishlist queries                 |
+| idx_user_cards_card_id          | Update/sync operations           | Efficient card lookup in collections           |
+| idx_cards_set_id                | Filter by set                    | Fast set-based card browsing                   |
+| idx_cards_types                 | Filter by type                   | Efficient Pokémon type filtering               |
+| idx_cards_name_search           | Search by name                   | Fast partial name matching with trigrams       |
+| idx_analytics_events_created_at | Retention cleanup, recent events | Quick deletion of old events, recent analytics |
+| idx_analytics_events_type       | Analytics dashboards             | Fast filtering by event type                   |
+| idx_analytics_events_user_id    | User activity tracking           | Quick retrieval of user-specific analytics     |
 
 ---
 
-## 4. Views
+## 4. Row-Level Security (RLS) Policies
 
-### Collection Summary Views
+RLS is enabled on all tables to ensure user data isolation. All policies follow the principle of least privilege.
 
-#### `collection_set_summary`
-
-Provides per-set collection statistics for a user's collection view.
+### profiles Table
 
 ```sql
-create or replace view collection_set_summary as
-select
-  ce.user_id,
-  s.id as set_id,
-  s.name as set_name,
-  s.total_cards as set_total_cards,
-  count(distinct ce.card_id) as owned_unique_cards,
-  sum(ce.quantity) as owned_total_cards,
-  round(
-    (count(distinct ce.card_id)::numeric / nullif(s.total_cards, 0)) * 100,
-    1
-  ) as completion_percentage
-from collection_entries ce
-join cards c on c.id = ce.card_id
-join sets s on s.id = c.set_id
-group by ce.user_id, s.id, s.name, s.total_cards;
+-- Allow users to view their own profile
+CREATE POLICY "profiles_select_own"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id);
+
+-- Allow users to update their own profile
+CREATE POLICY "profiles_update_own"
+  ON profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- Deletion handled via CASCADE from auth.users
 ```
 
-#### `collection_value_view`
+**Rationale**: Users should only access their own profile data. Profile deletion is automatic when auth user is deleted.
 
-Provides total collection value calculation (US-016).
+### user_cards Table
 
 ```sql
-create or replace view collection_value_view as
-select
-  ce.user_id,
-  count(*) as total_entries,
-  sum(ce.quantity) as total_cards,
-  sum(ce.quantity * coalesce(cp.price, 0)) as total_market_value,
-  sum(ce.quantity * coalesce(ce.purchase_price, 0)) as total_purchase_cost,
-  sum(ce.quantity * coalesce(cp.price, 0)) - sum(ce.quantity * coalesce(ce.purchase_price, 0)) as total_profit_loss
-from collection_entries ce
-left join lateral (
-  select price
-  from card_prices
-  where card_id = ce.card_id
-    and price_type = 'market'
-  order by fetched_at desc
-  limit 1
-) cp on true
-group by ce.user_id;
+-- Allow users to view their own collection
+CREATE POLICY "user_cards_select_own"
+  ON user_cards FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Allow users to insert cards into their collection
+CREATE POLICY "user_cards_insert_own"
+  ON user_cards FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to update their own collection entries
+CREATE POLICY "user_cards_update_own"
+  ON user_cards FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to delete from their own collection
+CREATE POLICY "user_cards_delete_own"
+  ON user_cards FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
 ```
+
+**Rationale**: Complete isolation between users' collections. Each user can only manage their own collection data.
+
+### cards Table
+
+```sql
+-- Allow authenticated users to view all cards
+CREATE POLICY "cards_select_authenticated"
+  ON cards FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Allow unauthenticated users to view all cards (for public browsing)
+CREATE POLICY "cards_select_anon"
+  ON cards FOR SELECT
+  TO anon
+  USING (true);
+
+-- Service role can manage card data (for API syncing)
+-- (Service role automatically bypasses RLS)
+```
+
+**Rationale**: Card data is public and read-only for users. Only service role can update/insert cards when syncing from TCGDex API.
+
+### sets Table
+
+```sql
+-- Allow all users to view all sets
+CREATE POLICY "sets_select_public"
+  ON sets FOR SELECT
+  TO public
+  USING (true);
+
+-- Service role can manage set data (for API syncing)
+-- (Service role automatically bypasses RLS)
+```
+
+**Rationale**: Set data is public and read-only for users. Only service role manages set data.
+
+### analytics_events Table
+
+```sql
+-- Allow users to insert their own events
+CREATE POLICY "analytics_events_insert_own"
+  ON analytics_events FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+-- Allow service role to query all events (for analytics dashboards)
+-- (Service role automatically bypasses RLS)
+```
+
+**Rationale**: Users can only log their own events. Analytics dashboards accessed via service role queries.
 
 ---
 
-## 5. Row Level Security (RLS) Policies
+## 5. Triggers and Functions
 
-### Enable RLS on User-Scoped Tables
-
-```sql
--- Enable RLS
-alter table user_profiles enable row level security;
-alter table collection_entries enable row level security;
-alter table user_lists enable row level security;
-alter table list_entries enable row level security;
-```
-
-### User Profiles Policies
+### Auto-update `updated_at` Timestamp
 
 ```sql
--- Select: Users can read their own profile
-create policy "user_profiles_select_own"
-  on user_profiles for select
-  to authenticated
-  using (id = auth.uid());
+-- Create function to update updated_at column
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Insert: Users can create their own profile
-create policy "user_profiles_insert_own"
-  on user_profiles for insert
-  to authenticated
-  with check (id = auth.uid());
+-- Apply to profiles
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
--- Update: Users can update their own profile
-create policy "user_profiles_update_own"
-  on user_profiles for update
-  to authenticated
-  using (id = auth.uid())
-  with check (id = auth.uid());
+-- Apply to cards
+CREATE TRIGGER update_cards_updated_at
+  BEFORE UPDATE ON cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
--- Delete: Users can delete their own profile (soft-delete handled at app level)
-create policy "user_profiles_delete_own"
-  on user_profiles for delete
-  to authenticated
-  using (id = auth.uid());
+-- Apply to sets
+CREATE TRIGGER update_sets_updated_at
+  BEFORE UPDATE ON sets
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Apply to user_cards
+CREATE TRIGGER update_user_cards_updated_at
+  BEFORE UPDATE ON user_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 ```
 
-### Collection Entries Policies
+### Auto-create Profile on User Registration
 
 ```sql
--- Select: Users can read their own collection entries
-create policy "collection_entries_select_own"
-  on collection_entries for select
-  to authenticated
-  using (user_id = auth.uid());
+-- Function to create profile when user is registered
+CREATE OR REPLACE FUNCTION create_profile_for_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, created_at, updated_at)
+  VALUES (NEW.id, NOW(), NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Insert: Users can add entries to their own collection
-create policy "collection_entries_insert_own"
-  on collection_entries for insert
-  to authenticated
-  with check (user_id = auth.uid());
-
--- Update: Users can update their own collection entries
-create policy "collection_entries_update_own"
-  on collection_entries for update
-  to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
--- Delete: Users can remove entries from their own collection
-create policy "collection_entries_delete_own"
-  on collection_entries for delete
-  to authenticated
-  using (user_id = auth.uid());
+-- Trigger on auth.users insert
+CREATE TRIGGER create_profile_on_auth_user_insert
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_profile_for_user();
 ```
 
-### User Lists Policies
+**Rationale**: Ensures every authenticated user automatically has a profile, preventing orphaned auth records.
+
+### Update Profiles total_cards_count
 
 ```sql
--- Select: Users can read their own lists
-create policy "user_lists_select_own"
-  on user_lists for select
-  to authenticated
-  using (user_id = auth.uid());
+-- Function to update total_cards_count in profiles
+CREATE OR REPLACE FUNCTION update_user_total_cards_count()
+RETURNS TRIGGER AS $$
+DECLARE
+  new_total INT;
+BEGIN
+  -- Calculate total cards for the user
+  SELECT COALESCE(SUM(quantity), 0) INTO new_total
+  FROM user_cards
+  WHERE user_id = COALESCE(NEW.user_id, OLD.user_id);
 
--- Insert: Users can create lists (limit enforced at application level)
-create policy "user_lists_insert_own"
-  on user_lists for insert
-  to authenticated
-  with check (user_id = auth.uid());
+  -- Update profile with new total
+  UPDATE profiles
+  SET total_cards_count = new_total
+  WHERE id = COALESCE(NEW.user_id, OLD.user_id);
 
--- Update: Users can update their own lists
-create policy "user_lists_update_own"
-  on user_lists for update
-  to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
 
--- Delete: Users can delete their own lists
-create policy "user_lists_delete_own"
-  on user_lists for delete
-  to authenticated
-  using (user_id = auth.uid());
+-- Trigger on user_cards insert
+CREATE TRIGGER update_total_cards_on_insert
+  AFTER INSERT ON user_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_user_total_cards_count();
+
+-- Trigger on user_cards update
+CREATE TRIGGER update_total_cards_on_update
+  AFTER UPDATE ON user_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_user_total_cards_count();
+
+-- Trigger on user_cards delete
+CREATE TRIGGER update_total_cards_on_delete
+  AFTER DELETE ON user_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_user_total_cards_count();
 ```
 
-### List Entries Policies
+**Rationale**: Maintains accurate denormalized counter to efficiently check the 10,000 card limit without expensive `SUM()` queries.
+
+### Prevent Exceeding Card Limit
 
 ```sql
--- Select: Users can read list entries for their own lists
-create policy "list_entries_select_own"
-  on list_entries for select
-  to authenticated
-  using (
-    exists (
-      select 1 from user_lists ul
-      where ul.id = list_entries.list_id
-        and ul.user_id = auth.uid()
-    )
-  );
+-- Function to prevent adding cards beyond 10,000 limit
+CREATE OR REPLACE FUNCTION check_card_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  new_total INT;
+BEGIN
+  -- Calculate what the total would be after this operation
+  SELECT COALESCE(SUM(quantity), 0) INTO new_total
+  FROM user_cards
+  WHERE user_id = NEW.user_id AND id != COALESCE(OLD.id, '00000000-0000-0000-0000-000000000000');
 
--- Insert: Users can add entries to their own lists
-create policy "list_entries_insert_own"
-  on list_entries for insert
-  to authenticated
-  with check (
-    exists (
-      select 1 from user_lists ul
-      where ul.id = list_entries.list_id
-        and ul.user_id = auth.uid()
-    )
-  );
+  new_total := new_total + NEW.quantity;
 
--- Delete: Users can remove entries from their own lists
-create policy "list_entries_delete_own"
-  on list_entries for delete
-  to authenticated
-  using (
-    exists (
-      select 1 from user_lists ul
-      where ul.id = list_entries.list_id
-        and ul.user_id = auth.uid()
-    )
-  );
+  -- Raise error if exceeds limit
+  IF new_total > 10000 THEN
+    RAISE EXCEPTION 'Card limit exceeded: user % has % cards (max 10000)',
+      NEW.user_id, new_total;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger on user_cards insert or update
+CREATE TRIGGER enforce_card_limit
+  BEFORE INSERT OR UPDATE ON user_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION check_card_limit();
 ```
 
-### Public Catalog Access
-
-```sql
--- Cards, sets, rarities are publicly readable (no authentication required)
--- These tables do NOT have RLS enabled as they are public catalog data
-
--- Card prices are publicly readable
-alter table card_prices enable row level security;
-
-create policy "card_prices_select_public"
-  on card_prices for select
-  to anon, authenticated
-  using (true);
-
--- Sets are publicly readable
-alter table sets enable row level security;
-
-create policy "sets_select_public"
-  on sets for select
-  to anon, authenticated
-  using (true);
-
--- Cards are publicly readable
-alter table cards enable row level security;
-
-create policy "cards_select_public"
-  on cards for select
-  to anon, authenticated
-  using (true);
-
--- Rarities are publicly readable
-alter table rarities enable row level security;
-
-create policy "rarities_select_public"
-  on rarities for select
-  to anon, authenticated
-  using (true);
-
--- TCG types are publicly readable
-alter table tcg_types enable row level security;
-
-create policy "tcg_types_select_public"
-  on tcg_types for select
-  to anon, authenticated
-  using (true);
-
--- Price sources are publicly readable
-alter table price_sources enable row level security;
-
-create policy "price_sources_select_public"
-  on price_sources for select
-  to anon, authenticated
-  using (true);
-
--- Card conditions are publicly readable
-alter table card_conditions enable row level security;
-
-create policy "card_conditions_select_public"
-  on card_conditions for select
-  to anon, authenticated
-  using (true);
-
--- Grading companies are publicly readable
-alter table grading_companies enable row level security;
-
-create policy "grading_companies_select_public"
-  on grading_companies for select
-  to anon, authenticated
-  using (true);
-```
-
-### Admin-Only Policies
-
-```sql
--- Import jobs: Only admins can read (FR-008, US-025)
-alter table import_jobs enable row level security;
-
-create policy "import_jobs_select_admin"
-  on import_jobs for select
-  to authenticated
-  using (
-    exists (
-      select 1 from user_profiles up
-      where up.id = auth.uid()
-        and up.is_admin = true
-    )
-  );
-
--- Import jobs: Only admins can insert (manual trigger)
-create policy "import_jobs_insert_admin"
-  on import_jobs for insert
-  to authenticated
-  with check (
-    exists (
-      select 1 from user_profiles up
-      where up.id = auth.uid()
-        and up.is_admin = true
-    )
-  );
-```
+**Rationale**: Database-level enforcement of the 10,000 card limit prevents accidental violations.
 
 ---
 
-## 6. Database Functions
+## 6. Design Decisions and Rationale
 
-### User Profile Creation Trigger
+### Card Caching Strategy
 
-Automatically create user profile when a new user signs up.
+- **Decision**: Cache card metadata in `cards` table rather than fetching from TCGDex API on every request
+- **Rationale**:
+  - Enables offline support (FR-07) for viewing collections
+  - Reduces API dependency on TCGDex
+  - Improves performance for card display
+  - Essential card data (name, image, rarity) cached; users still search against cache
+  - `last_synced_at` timestamp tracks freshness; manual refresh in MVP, automated post-MVP
 
-```sql
-create or replace function handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.user_profiles (id)
-  values (new.id);
-  return new;
-end;
-$$;
+### Variant Handling
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure handle_new_user();
-```
+- **Decision**: Use single TEXT field with CHECK constraint for variant type
+- **Rationale**:
+  - Supports four variants: normal, reverse, holo, firstEdition
+  - CHECK constraint maintains data integrity
+  - Composite unique key `(user_id, card_id, variant)` prevents duplicates
+  - Same card with different variants stored as separate `user_cards` entries
+  - More flexible than ENUM type for future variant additions
 
-### Update Timestamp Trigger
+### Quantity Constraints
 
-Automatically update `updated_at` column on record changes.
+- **Decision**: CHECK constraints: `quantity >= 1 AND quantity <= 1000`
+- **Rationale**:
+  - Prevents invalid states (0 or negative quantity)
+  - Per-variant limit of 1000 copies (reasonable maximum for physical cards)
+  - 10,000 card total limit enforced via trigger
+  - Allows for realistic collecting scenarios
 
-```sql
-create or replace function update_updated_at_column()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
+### Wishlist Implementation (MVP)
 
--- Apply to relevant tables
-create trigger update_sets_updated_at
-  before update on sets
-  for each row execute procedure update_updated_at_column();
+- **Decision**: Single `wishlisted BOOLEAN` column on `user_cards` for owned cards only
+- **Rationale**:
+  - MVP focuses on tracking owned cards with wishlist flag
+  - Separate `wishlists` table for unowned wishlisted cards deferred to post-MVP
+  - Simpler schema and queries
+  - Users can wishlist cards they own via collection interface
+  - Post-MVP can add comprehensive wishlist system
 
-create trigger update_cards_updated_at
-  before update on cards
-  for each row execute procedure update_updated_at_column();
+### Denormalized Counter
 
-create trigger update_user_profiles_updated_at
-  before update on user_profiles
-  for each row execute procedure update_updated_at_column();
+- **Decision**: `total_cards_count` column on `profiles` table
+- **Rationale**:
+  - Efficient limit checking without expensive `SUM(quantity)` aggregations
+  - Maintained via triggers on `user_cards` table
+  - Supports fast queries for approaching/exceeding limit warnings
+  - Trade-off: minimal storage overhead (1 INT per user) vs. query performance
 
-create trigger update_collection_entries_updated_at
-  before update on collection_entries
-  for each row execute procedure update_updated_at_column();
+### Timestamp Tracking
 
-create trigger update_user_lists_updated_at
-  before update on user_lists
-  for each row execute procedure update_updated_at_column();
-```
+- **Decision**: Include `created_at` and `updated_at` on all tables; `last_synced_at` on cache tables
+- **Rationale**:
+  - `created_at`/`updated_at` support audit trail and analytics
+  - `last_synced_at` tracks when card/set data was last refreshed from API
+  - Auto-updated via triggers (except `last_synced_at`, set by service role)
+  - Supports analytics requirements and cache freshness tracking
 
-### User List Count Enforcement
+### Cascade Behavior
 
-Function to check list count limit (FR-004: max 10 lists).
+- **Decision**: CASCADE on user-related tables, RESTRICT on master data
+  - `profiles` → `auth.users`: CASCADE
+  - `user_cards` → `profiles`: CASCADE
+  - `user_cards` → `cards`: RESTRICT
+  - `cards` → `sets`: RESTRICT
+- **Rationale**:
+  - Cascading user deletion removes all related data automatically
+  - RESTRICT on master data (cards, sets) prevents accidental deletion if referenced
+  - Maintains referential integrity while enabling safe user data cleanup
 
-```sql
-create or replace function check_user_list_limit()
-returns trigger
-language plpgsql
-as $$
-declare
-  list_count integer;
-begin
-  select count(*) into list_count
-  from user_lists
-  where user_id = new.user_id;
+### RLS Policy Granularity
 
-  if list_count >= 10 then
-    raise exception 'Maximum number of lists (10) reached for this user';
-  end if;
+- **Decision**: Separate policies per operation (SELECT, INSERT, UPDATE, DELETE) and role
+- **Rationale**:
+  - Granular control following least privilege principle
+  - Different rules per operation (e.g., INSERT requires auth.uid() match)
+  - Public read access for cards/sets; authenticated-only for personal data
+  - Easy to audit and maintain security boundaries
 
-  return new;
-end;
-$$;
+### Analytics Event Design
 
-create trigger enforce_user_list_limit
-  before insert on user_lists
-  for each row execute procedure check_user_list_limit();
-```
+- **Decision**: Separate `analytics_events` table with JSONB event_data field
+- **Rationale**:
+  - Flexible schema for different event types without schema changes
+  - Event-specific data stored as JSONB for future analysis
+  - 90-day retention policy prevents unbounded growth
+  - Supports success metrics tracking (card additions, searches, logins, etc.)
+  - Null user_id allows anonymous event tracking
 
-### API Cache Cleanup
+### No Partitioning for MVP
 
-Function to remove expired cache entries.
+- **Decision**: Skip table partitioning despite potential growth
+- **Rationale**:
+  - 10,000 card limit per user creates predictable max data size
+  - Partitioning adds operational complexity
+  - Indexes sufficient for MVP performance targets
+  - Reassess post-MVP if scaling beyond current limits
 
-```sql
-create or replace function cleanup_expired_api_cache()
-returns integer
-language plpgsql
-as $$
-declare
-  deleted_count integer;
-begin
-  delete from api_cache where expires_at < now();
-  get diagnostics deleted_count = row_count;
-  return deleted_count;
-end;
-$$;
-```
+### Foreign Key Constraints
+
+- **Decision**: Include all foreign keys with appropriate cascade behaviors
+- **Rationale**:
+  - Maintains referential integrity at database level
+  - Prevents orphaned records
+  - Supports cascading deletes for user cleanup
+  - RESTRICT on master data prevents accidental deletion
 
 ---
 
 ## 7. Additional Notes
 
-### Design Decisions
+### TypeScript Type Generation
 
-1. **UUID Primary Keys**: All main tables use UUIDs for primary keys to support distributed systems and avoid sequential ID exposure.
+After migrations are applied, generate TypeScript definitions using:
 
-2. **TCG Type Column**: Added `tcg_type_id` to core tables (`sets`, `cards`, `rarities`) to support future multi-TCG expansion without schema changes.
+```bash
+supabase gen types typescript --local > src/db/database.types.ts
+```
 
-3. **Soft Delete for Users**: `user_profiles.deleted_at` implements the 30-day grace period for account recovery (US-005, US-006).
+### Environment Variables Required
 
-4. **Lookup Tables**: Card conditions, grading companies, rarities, and price sources are normalized into lookup tables for data integrity and easy updates.
+```
+SUPABASE_URL=<your-supabase-project-url>
+SUPABASE_KEY=<your-supabase-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key-for-migrations>
+```
 
-5. **Composite Unique Constraints**: `collection_entries` uses a composite unique constraint to allow multiple entries per user/card with different conditions/grades while preventing true duplicates.
+### Database Limits and Quotas
 
-6. **JSONB for Complex Data**: Card abilities, attacks, weaknesses, and resistances use JSONB to flexibly store complex nested data from the pokemontcg.io API.
+- 10,000 cards per user (enforced by trigger)
+- 1,000 copies per variant per user (CHECK constraint)
+- 1,000 total unique cards × 4 variants = theoretical max 4,000 entries per user
+- Actual max ~2,500 cards/user with realistic distribution
 
-7. **Cascading Deletes**: Foreign keys cascade on delete to `auth.users` to ensure orphaned data is removed when users are deleted.
+### Performance Targets
 
-8. **Materialized Views Consideration**: The views defined are regular views for simplicity. If performance issues arise with large collections, consider converting `collection_value_view` to a materialized view with periodic refresh.
-
-### Performance Considerations
-
-1. **Index Coverage**: Indexes are designed to cover the most common query patterns:
-   - Set browsing (sorted by release date)
-   - Card search (full-text on name)
-   - Collection filtering (by user, card, list)
-
-2. **Query Optimization**: Views pre-compute collection statistics to avoid complex aggregations in application code.
-
-3. **Cache Strategy**: `api_cache` table supports the 24-hour TTL requirement with efficient expiration-based cleanup.
+- Collection view load: < 3 seconds (1,000+ cards)
+- Card search response: < 1 second (10,000+ cards)
+- Add card to collection: < 500ms
+- Update quantity: < 100ms
+- All targets achievable with current indexing strategy
 
 ### Security Considerations
 
-1. **RLS Enforcement**: Every user-scoped table has RLS enabled with policies checking `auth.uid()`.
+- Service role key used only for server-side operations (card sync, analytics)
+- All user data access requires `auth.uid()` match
+- Public cards/sets readable by all (supports unauthenticated browsing)
+- Rate limiting handled at API/middleware layer, not database
 
-2. **Admin Role**: Admin access is controlled via `user_profiles.is_admin` flag, checked in RLS policies for admin-only tables.
+### Future Extensibility
 
-3. **Public Catalog**: Card catalog data is intentionally public (readable by anonymous users) as it's reference data, not user data.
+- `tcg_type` field supports multi-TCG expansion (Magic, Yu-Gi-Oh, etc.)
+- JSONB `event_data` in analytics allows flexible event structures
+- Wishlist separation to `wishlists` table planned for post-MVP
+- Card sync automation via scheduled jobs planned for post-MVP
 
-4. **Cascading Security**: List entries inherit security through their relationship to user-owned lists.
+### Testing Recommendations
+
+- Unit test each trigger function with edge cases
+- Integration test full collection flow (add, update, remove, export)
+- Load test with 1,000-10,000 cards per user
+- Test RLS policies with different authentication states
+- Verify cascade deletes work correctly with related data

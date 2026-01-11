@@ -1,1222 +1,27 @@
 # REST API Plan
 
-## Overview
-
-This document defines the REST API endpoints for TCGCollectr, a Trading Card Game collection management application. The API is built with Astro 5 server endpoints using TypeScript and integrates with Supabase for data persistence and authentication.
-
-**Base URL:** `/api`
-
-**Authentication:** Supabase Auth (JWT tokens via cookies/headers)
-
-**Content Type:** `application/json`
-
----
-
 ## 1. Resources
 
-| Resource           | Database Table(s)                       | Description                             |
-| ------------------ | --------------------------------------- | --------------------------------------- |
-| TCG Types          | `tcg_types`                             | Trading card game types                 |
-| Sets               | `sets`                                  | Card sets/expansions                    |
-| Cards              | `cards`, `card_prices`                  | Card catalog with pricing               |
-| Rarities           | `rarities`                              | Card rarity lookup values               |
-| Conditions         | `card_conditions`                       | Card condition lookup values            |
-| Grading Companies  | `grading_companies`                     | Professional grading companies          |
-| Collection Entries | `collection_entries`                    | User's card collection                  |
-| User Lists         | `user_lists`, `list_entries`            | Custom organization lists               |
-| User Profile       | `user_profiles`                         | User profile information                |
-| Import Jobs        | `import_jobs`                           | Admin: data import tracking             |
+| Resource          | Database Table     | Description                                      |
+| ----------------- | ------------------ | ------------------------------------------------ |
+| Profiles          | `profiles`         | User profile information and preferences         |
+| Sets              | `sets`             | Pokémon TCG sets/expansions                      |
+| Cards             | `cards`            | Card metadata cached from TCGDex API             |
+| User Cards        | `user_cards`       | User's collection entries with variants/quantity |
+| Analytics Events  | `analytics_events` | User action tracking for metrics                 |
 
 ---
 
 ## 2. Endpoints
 
-### 2.1 TCG Types
+### 2.1 Authentication
 
-#### GET `/api/tcg-types`
+Authentication is handled by Supabase Auth. The API endpoints below document the expected flow.
 
-Retrieve all available TCG types.
-
-**Authentication:** None required
-
-**Query Parameters:** None
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "code": "pokemon",
-      "name": "Pokémon TCG"
-    }
-  ]
-}
-```
-
-**Success Codes:**
-- `200 OK` - TCG types retrieved successfully
-
-**Error Codes:**
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.2 Sets
-
-#### GET `/api/sets`
-
-Retrieve all card sets with optional filtering and pagination.
-
-**Authentication:** None required
-
-**Query Parameters:**
-
-| Parameter   | Type    | Required | Description                                      |
-| ----------- | ------- | -------- | ------------------------------------------------ |
-| `tcgTypeId` | integer | No       | Filter by TCG type ID                            |
-| `series`    | string  | No       | Filter by series name                            |
-| `search`    | string  | No       | Search by set name                               |
-| `sortBy`    | string  | No       | Sort field: `name`, `releaseDate` (default)      |
-| `sortOrder` | string  | No       | Sort direction: `asc`, `desc` (default)          |
-| `page`      | integer | No       | Page number (default: 1)                         |
-| `limit`     | integer | No       | Items per page: 20, 30, 50 (default: 20)         |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "tcgTypeId": 1,
-      "externalId": "sv1",
-      "name": "Scarlet & Violet",
-      "series": "Scarlet & Violet",
-      "releaseDate": "2023-03-31",
-      "totalCards": 258,
-      "logoUrl": "https://...",
-      "symbolUrl": "https://..."
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 150,
-    "totalPages": 8
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Sets retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid query parameters
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/sets/:setId`
-
-Retrieve a specific set by ID.
-
-**Authentication:** None required
-
-**Path Parameters:**
-
-| Parameter | Type | Description     |
-| --------- | ---- | --------------- |
-| `setId`   | uuid | Set identifier  |
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "tcgTypeId": 1,
-    "externalId": "sv1",
-    "name": "Scarlet & Violet",
-    "series": "Scarlet & Violet",
-    "releaseDate": "2023-03-31",
-    "totalCards": 258,
-    "logoUrl": "https://...",
-    "symbolUrl": "https://...",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Set retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid set ID format
-- `404 Not Found` - Set not found
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.3 Cards
-
-#### GET `/api/cards`
-
-Retrieve cards with filtering, search, and pagination.
-
-**Authentication:** None required
-
-**Query Parameters:**
-
-| Parameter    | Type    | Required | Description                                       |
-| ------------ | ------- | -------- | ------------------------------------------------- |
-| `setId`      | uuid    | No       | Filter by set ID                                  |
-| `tcgTypeId`  | integer | No       | Filter by TCG type ID                             |
-| `rarityId`   | integer | No       | Filter by rarity ID                               |
-| `cardType`   | string  | No       | Filter by card type (Pokémon, Trainer, Energy)    |
-| `priceMin`   | number  | No       | Minimum market price (USD)                        |
-| `priceMax`   | number  | No       | Maximum market price (USD)                        |
-| `search`     | string  | No       | Full-text search (card name, Pokémon name)        |
-| `sortBy`     | string  | No       | Sort field: `name`, `cardNumber`, `price`         |
-| `sortOrder`  | string  | No       | Sort direction: `asc` (default), `desc`           |
-| `page`       | integer | No       | Page number (default: 1)                          |
-| `limit`      | integer | No       | Items per page: 20, 30, 50 (default: 20)          |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "setId": "uuid",
-      "externalId": "sv1-1",
-      "name": "Sprigatito",
-      "cardNumber": "1",
-      "rarity": {
-        "id": 1,
-        "code": "common",
-        "name": "Common"
-      },
-      "cardType": "Pokémon",
-      "imageSmallUrl": "https://...",
-      "price": {
-        "market": 0.25,
-        "currency": "USD",
-        "lastUpdated": "2024-01-01T04:00:00Z"
-      }
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 258,
-    "totalPages": 13
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Cards retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid query parameters
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/cards/:cardId`
-
-Retrieve detailed information for a specific card. Fetches supplementary data from pokemontcg.io API on-demand if not cached.
-
-**Authentication:** None required
-
-**Path Parameters:**
-
-| Parameter | Type | Description      |
-| --------- | ---- | ---------------- |
-| `cardId`  | uuid | Card identifier  |
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "tcgTypeId": 1,
-    "setId": "uuid",
-    "set": {
-      "id": "uuid",
-      "name": "Scarlet & Violet",
-      "series": "Scarlet & Violet"
-    },
-    "externalId": "sv1-1",
-    "name": "Sprigatito",
-    "cardNumber": "1",
-    "rarity": {
-      "id": 1,
-      "code": "common",
-      "name": "Common"
-    },
-    "cardType": "Pokémon",
-    "supertype": "Pokémon",
-    "subtypes": ["Basic"],
-    "hp": 60,
-    "types": ["Grass"],
-    "evolvesFrom": null,
-    "abilities": null,
-    "attacks": [
-      {
-        "name": "Bite",
-        "cost": ["Grass"],
-        "damage": "20",
-        "text": ""
-      }
-    ],
-    "weaknesses": [{"type": "Fire", "value": "×2"}],
-    "resistances": null,
-    "retreatCost": ["Colorless"],
-    "rules": null,
-    "artist": "Kouki Saitou",
-    "flavorText": "Its fluffy fur is...",
-    "imageSmallUrl": "https://...",
-    "imageLargeUrl": "https://...",
-    "price": {
-      "market": 0.25,
-      "low": 0.10,
-      "mid": 0.20,
-      "high": 0.50,
-      "currency": "USD",
-      "lastUpdated": "2024-01-01T04:00:00Z"
-    },
-    "apiDataFetched": true,
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Card retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid card ID format
-- `404 Not Found` - Card not found
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/cards/search`
-
-Fast search endpoint for card name, set name, card number, and Pokémon name. Optimized for <200ms response time.
-
-**Authentication:** None required
-
-**Query Parameters:**
-
-| Parameter | Type    | Required | Description                              |
-| --------- | ------- | -------- | ---------------------------------------- |
-| `q`       | string  | Yes      | Search query (min 2 characters)          |
-| `limit`   | integer | No       | Max results (default: 20, max: 50)       |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Pikachu",
-      "cardNumber": "25",
-      "setName": "Base Set",
-      "imageSmallUrl": "https://...",
-      "price": 15.00
-    }
-  ],
-  "meta": {
-    "query": "pikachu",
-    "resultCount": 20,
-    "hasMore": true
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Search completed successfully
-
-**Error Codes:**
-- `400 Bad Request` - Missing or invalid query parameter
-- `500 Internal Server Error` - Search error
-
----
-
-### 2.4 Lookup Data (Rarities, Conditions, Grading Companies)
-
-#### GET `/api/rarities`
-
-Retrieve all rarity values.
-
-**Authentication:** None required
-
-**Query Parameters:**
-
-| Parameter   | Type    | Required | Description              |
-| ----------- | ------- | -------- | ------------------------ |
-| `tcgTypeId` | integer | No       | Filter by TCG type ID    |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "tcgTypeId": 1,
-      "code": "common",
-      "name": "Common",
-      "sortOrder": 1
-    }
-  ]
-}
-```
-
-**Success Codes:**
-- `200 OK` - Rarities retrieved successfully
-
-**Error Codes:**
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/conditions`
-
-Retrieve all card condition values.
-
-**Authentication:** None required
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "code": "mint",
-      "name": "Mint",
-      "sortOrder": 1
-    },
-    {
-      "id": 2,
-      "code": "near_mint",
-      "name": "Near Mint",
-      "sortOrder": 2
-    }
-  ]
-}
-```
-
-**Success Codes:**
-- `200 OK` - Conditions retrieved successfully
-
-**Error Codes:**
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/grading-companies`
-
-Retrieve all professional grading companies.
-
-**Authentication:** None required
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "code": "PSA",
-      "name": "Professional Sports Authenticator",
-      "minGrade": 1.0,
-      "maxGrade": 10.0
-    }
-  ]
-}
-```
-
-**Success Codes:**
-- `200 OK` - Grading companies retrieved successfully
-
-**Error Codes:**
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.5 Collection Entries
-
-#### GET `/api/collection`
-
-Retrieve the authenticated user's card collection.
-
-**Authentication:** Required
-
-**Query Parameters:**
-
-| Parameter     | Type    | Required | Description                               |
-| ------------- | ------- | -------- | ----------------------------------------- |
-| `listId`      | uuid    | No       | Filter by list ID                         |
-| `setId`       | uuid    | No       | Filter by set ID                          |
-| `conditionId` | integer | No       | Filter by condition ID                    |
-| `search`      | string  | No       | Search within collection (card name)      |
-| `sortBy`      | string  | No       | Sort: `name`, `dateAdded`, `value`        |
-| `sortOrder`   | string  | No       | Sort direction: `asc`, `desc` (default)   |
-| `page`        | integer | No       | Page number (default: 1)                  |
-| `limit`       | integer | No       | Items per page: 20, 30, 50 (default: 20)  |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "card": {
-        "id": "uuid",
-        "name": "Pikachu",
-        "cardNumber": "25",
-        "setName": "Base Set",
-        "imageSmallUrl": "https://...",
-        "rarity": "Rare"
-      },
-      "condition": {
-        "id": 2,
-        "code": "near_mint",
-        "name": "Near Mint"
-      },
-      "quantity": 2,
-      "grading": {
-        "company": {
-          "id": 1,
-          "code": "PSA",
-          "name": "Professional Sports Authenticator"
-        },
-        "value": 9.5
-      },
-      "purchasePrice": 100.00,
-      "currentPrice": 150.00,
-      "notes": "First edition",
-      "lists": [
-        {"id": "uuid", "name": "Trade Binder"}
-      ],
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 150,
-    "totalPages": 8
-  },
-  "summary": {
-    "totalEntries": 150,
-    "totalCards": 275,
-    "totalMarketValue": 5000.00,
-    "totalPurchaseCost": 3500.00,
-    "currency": "USD"
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Collection retrieved successfully
-
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-#### POST `/api/collection`
-
-Add a card to the authenticated user's collection.
-
-**Authentication:** Required
-
-**Request Body:**
-
-```json
-{
-  "cardId": "uuid",
-  "conditionId": 2,
-  "quantity": 1,
-  "gradingCompanyId": 1,
-  "gradeValue": 9.5,
-  "purchasePrice": 100.00,
-  "notes": "First edition"
-}
-```
-
-**Validation Rules:**
-- `cardId` (required): Valid UUID, card must exist
-- `conditionId` (required): Valid condition ID
-- `quantity` (required): Integer > 0
-- `gradingCompanyId` (optional): Valid grading company ID
-- `gradeValue` (optional): Number 1.0-10.0, required if `gradingCompanyId` provided
-- `purchasePrice` (optional): Number >= 0
-- `notes` (optional): String, max 500 characters
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "cardId": "uuid",
-    "conditionId": 2,
-    "quantity": 1,
-    "gradingCompanyId": 1,
-    "gradeValue": 9.5,
-    "purchasePrice": 100.00,
-    "notes": "First edition",
-    "createdAt": "2024-01-01T00:00:00Z"
-  },
-  "message": "Card added to collection successfully"
-}
-```
-
-**Success Codes:**
-- `201 Created` - Card added to collection
-
-**Error Codes:**
-- `400 Bad Request` - Validation error (details in response)
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - Card or condition not found
-- `409 Conflict` - Duplicate entry (same card, condition, grade combination)
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/collection/:entryId`
-
-Retrieve a specific collection entry.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description              |
-| --------- | ---- | ------------------------ |
-| `entryId` | uuid | Collection entry ID      |
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "card": {
-      "id": "uuid",
-      "name": "Pikachu",
-      "cardNumber": "25",
-      "setId": "uuid",
-      "setName": "Base Set",
-      "imageSmallUrl": "https://...",
-      "imageLargeUrl": "https://...",
-      "rarity": "Rare"
-    },
-    "condition": {
-      "id": 2,
-      "code": "near_mint",
-      "name": "Near Mint"
-    },
-    "quantity": 2,
-    "grading": {
-      "company": {
-        "id": 1,
-        "code": "PSA",
-        "name": "Professional Sports Authenticator"
-      },
-      "value": 9.5
-    },
-    "purchasePrice": 100.00,
-    "currentPrice": 150.00,
-    "notes": "First edition",
-    "lists": [
-      {"id": "uuid", "name": "Trade Binder"}
-    ],
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Entry retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid entry ID format
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - Entry not found or not owned by user
-- `500 Internal Server Error` - Database error
-
----
-
-#### PATCH `/api/collection/:entryId`
-
-Update a collection entry.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description              |
-| --------- | ---- | ------------------------ |
-| `entryId` | uuid | Collection entry ID      |
-
-**Request Body:** (all fields optional)
-
-```json
-{
-  "conditionId": 1,
-  "quantity": 3,
-  "gradingCompanyId": 1,
-  "gradeValue": 10.0,
-  "purchasePrice": 150.00,
-  "notes": "Updated notes"
-}
-```
-
-**Validation Rules:**
-- Same as POST, but all fields optional
-- At least one field must be provided
-- Grade company required if grade value provided (and vice versa)
-- Setting both `gradingCompanyId` and `gradeValue` to `null` removes grading info
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "conditionId": 1,
-    "quantity": 3,
-    "gradingCompanyId": 1,
-    "gradeValue": 10.0,
-    "purchasePrice": 150.00,
-    "notes": "Updated notes",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  },
-  "message": "Collection entry updated successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - Entry updated successfully
-
-**Error Codes:**
-- `400 Bad Request` - Validation error
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - Entry not found or not owned by user
-- `409 Conflict` - Update would create duplicate entry
-- `500 Internal Server Error` - Database error
-
----
-
-#### DELETE `/api/collection/:entryId`
-
-Remove a card from the collection.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description              |
-| --------- | ---- | ------------------------ |
-| `entryId` | uuid | Collection entry ID      |
-
-**Response:**
-
-```json
-{
-  "message": "Card removed from collection successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - Entry deleted successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid entry ID format
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - Entry not found or not owned by user
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/collection/summary`
-
-Get collection statistics summary.
-
-**Authentication:** Required
-
-**Response:**
-
-```json
-{
-  "data": {
-    "totalEntries": 150,
-    "totalCards": 275,
-    "uniqueCards": 150,
-    "totalMarketValue": 5000.00,
-    "totalPurchaseCost": 3500.00,
-    "totalProfitLoss": 1500.00,
-    "currency": "USD",
-    "setCompletions": [
-      {
-        "setId": "uuid",
-        "setName": "Base Set",
-        "totalCards": 102,
-        "ownedCards": 50,
-        "completionPercentage": 49.0
-      }
-    ]
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Summary retrieved successfully
-
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.6 User Lists
-
-#### GET `/api/lists`
-
-Retrieve the authenticated user's custom lists.
-
-**Authentication:** Required
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Trade Binder",
-      "sortOrder": 1,
-      "cardCount": 25,
-      "createdAt": "2024-01-01T00:00:00Z",
-      "updatedAt": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "meta": {
-    "totalLists": 3,
-    "maxLists": 10
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Lists retrieved successfully
-
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-#### POST `/api/lists`
-
-Create a new custom list.
-
-**Authentication:** Required
-
-**Request Body:**
-
-```json
-{
-  "name": "For Sale"
-}
-```
-
-**Validation Rules:**
-- `name` (required): String, 1-50 characters, unique per user
-- User must have fewer than 10 lists
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "name": "For Sale",
-    "sortOrder": 4,
-    "cardCount": 0,
-    "createdAt": "2024-01-01T00:00:00Z"
-  },
-  "message": "List created successfully"
-}
-```
-
-**Success Codes:**
-- `201 Created` - List created successfully
-
-**Error Codes:**
-- `400 Bad Request` - Validation error (name too long, empty)
-- `401 Unauthorized` - Authentication required
-- `409 Conflict` - List name already exists for user
-- `422 Unprocessable Entity` - Maximum list limit (10) reached
-- `500 Internal Server Error` - Database error
-
----
-
-#### GET `/api/lists/:listId`
-
-Retrieve a specific list with its entries.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description      |
-| --------- | ---- | ---------------- |
-| `listId`  | uuid | List identifier  |
-
-**Query Parameters:**
-
-| Parameter  | Type    | Required | Description                               |
-| ---------- | ------- | -------- | ----------------------------------------- |
-| `page`     | integer | No       | Page number (default: 1)                  |
-| `limit`    | integer | No       | Items per page (default: 20)              |
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "name": "Trade Binder",
-    "sortOrder": 1,
-    "entries": [
-      {
-        "id": "uuid",
-        "collectionEntryId": "uuid",
-        "card": {
-          "id": "uuid",
-          "name": "Pikachu",
-          "cardNumber": "25",
-          "setName": "Base Set",
-          "imageSmallUrl": "https://..."
-        },
-        "condition": "Near Mint",
-        "quantity": 2
-      }
-    ],
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  },
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 25,
-    "totalPages": 2
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - List retrieved successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid list ID format
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - List not found or not owned by user
-- `500 Internal Server Error` - Database error
-
----
-
-#### PATCH `/api/lists/:listId`
-
-Update a list's name or sort order.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description      |
-| --------- | ---- | ---------------- |
-| `listId`  | uuid | List identifier  |
-
-**Request Body:**
-
-```json
-{
-  "name": "Trading Cards",
-  "sortOrder": 2
-}
-```
-
-**Validation Rules:**
-- `name` (optional): String, 1-50 characters, unique per user
-- `sortOrder` (optional): Integer >= 0
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "name": "Trading Cards",
-    "sortOrder": 2,
-    "updatedAt": "2024-01-01T00:00:00Z"
-  },
-  "message": "List updated successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - List updated successfully
-
-**Error Codes:**
-- `400 Bad Request` - Validation error
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - List not found or not owned by user
-- `409 Conflict` - List name already exists for user
-- `500 Internal Server Error` - Database error
-
----
-
-#### DELETE `/api/lists/:listId`
-
-Delete a custom list. Cards remain in collection.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description      |
-| --------- | ---- | ---------------- |
-| `listId`  | uuid | List identifier  |
-
-**Response:**
-
-```json
-{
-  "message": "List deleted successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - List deleted successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid list ID format
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - List not found or not owned by user
-- `500 Internal Server Error` - Database error
-
----
-
-#### POST `/api/lists/:listId/entries`
-
-Add collection entries to a list.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description      |
-| --------- | ---- | ---------------- |
-| `listId`  | uuid | List identifier  |
-
-**Request Body:**
-
-```json
-{
-  "collectionEntryIds": ["uuid1", "uuid2"]
-}
-```
-
-**Validation Rules:**
-- `collectionEntryIds` (required): Array of valid collection entry UUIDs
-- All entries must belong to the authenticated user
-- Entries already in list are skipped (no error)
-
-**Response:**
-
-```json
-{
-  "data": {
-    "addedCount": 2,
-    "skippedCount": 0
-  },
-  "message": "Entries added to list successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - Entries added successfully
-
-**Error Codes:**
-- `400 Bad Request` - Validation error
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - List or collection entries not found
-- `500 Internal Server Error` - Database error
-
----
-
-#### DELETE `/api/lists/:listId/entries/:entryId`
-
-Remove a collection entry from a list.
-
-**Authentication:** Required
-
-**Path Parameters:**
-
-| Parameter | Type | Description              |
-| --------- | ---- | ------------------------ |
-| `listId`  | uuid | List identifier          |
-| `entryId` | uuid | Collection entry ID      |
-
-**Response:**
-
-```json
-{
-  "message": "Entry removed from list successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - Entry removed from list successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid ID format
-- `401 Unauthorized` - Authentication required
-- `404 Not Found` - List, entry, or list membership not found
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.7 User Profile
-
-#### GET `/api/profile`
-
-Retrieve the authenticated user's profile.
-
-**Authentication:** Required
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "displayName": "CardCollector",
-    "avatarUrl": "https://...",
-    "isAdmin": false,
-    "emailVerified": true,
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-**Success Codes:**
-- `200 OK` - Profile retrieved successfully
-
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-#### PATCH `/api/profile`
-
-Update the authenticated user's profile.
-
-**Authentication:** Required
-
-**Request Body:**
-
-```json
-{
-  "displayName": "NewName",
-  "avatarUrl": "https://..."
-}
-```
-
-**Validation Rules:**
-- `displayName` (optional): String, max 100 characters
-- `avatarUrl` (optional): Valid URL string or null
-
-**Response:**
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "displayName": "NewName",
-    "avatarUrl": "https://...",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  },
-  "message": "Profile updated successfully"
-}
-```
-
-**Success Codes:**
-- `200 OK` - Profile updated successfully
-
-**Error Codes:**
-- `400 Bad Request` - Validation error
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-#### DELETE `/api/profile`
-
-Initiate account deletion (30-day soft delete).
-
-**Authentication:** Required
-
-**Response:**
-
-```json
-{
-  "message": "Account scheduled for deletion. You have 30 days to recover your account by logging in."
-}
-```
-
-**Success Codes:**
-- `200 OK` - Account marked for deletion
-
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `500 Internal Server Error` - Database error
-
----
-
-### 2.8 Authentication
-
-Authentication is handled via Supabase Auth. The following endpoints provide a thin wrapper for client-side convenience.
-
-#### POST `/api/auth/register`
+#### POST /api/auth/register
 
 Register a new user account.
 
-**Authentication:** None required
-
 **Request Body:**
 
 ```json
@@ -1226,38 +31,36 @@ Register a new user account.
 }
 ```
 
-**Validation Rules:**
-- `email` (required): Valid email format
-- `password` (required): Minimum 8 characters
-
-**Response:**
+**Response (201 Created):**
 
 ```json
 {
-  "data": {
-    "userId": "uuid",
+  "user": {
+    "id": "uuid",
     "email": "user@example.com"
   },
-  "message": "Registration successful. Please check your email to verify your account."
+  "session": {
+    "access_token": "jwt_token",
+    "refresh_token": "refresh_token",
+    "expires_at": 1234567890
+  }
 }
 ```
 
-**Success Codes:**
-- `201 Created` - Registration successful
+**Error Responses:**
 
-**Error Codes:**
-- `400 Bad Request` - Validation error
-- `409 Conflict` - Email already registered
-- `429 Too Many Requests` - Rate limit exceeded
-- `500 Internal Server Error` - Registration error
+| Status | Code                  | Message                               |
+| ------ | --------------------- | ------------------------------------- |
+| 400    | VALIDATION_ERROR      | Invalid email format                  |
+| 400    | VALIDATION_ERROR      | Password does not meet requirements   |
+| 409    | EMAIL_EXISTS          | Email address already registered      |
+| 429    | RATE_LIMIT_EXCEEDED   | Too many registration attempts        |
 
 ---
 
-#### POST `/api/auth/login`
+#### POST /api/auth/login
 
-Authenticate user and create session.
-
-**Authentication:** None required
+Authenticate an existing user.
 
 **Request Body:**
 
@@ -1268,58 +71,61 @@ Authenticate user and create session.
 }
 ```
 
-**Response:**
+**Response (200 OK):**
 
 ```json
 {
-  "data": {
-    "userId": "uuid",
-    "email": "user@example.com",
-    "emailVerified": true
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com"
   },
-  "message": "Login successful"
+  "session": {
+    "access_token": "jwt_token",
+    "refresh_token": "refresh_token",
+    "expires_at": 1234567890
+  }
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Login successful
+**Error Responses:**
 
-**Error Codes:**
-- `400 Bad Request` - Missing credentials
-- `401 Unauthorized` - Invalid credentials
-- `403 Forbidden` - Email not verified
-- `429 Too Many Requests` - Rate limit exceeded (brute force protection)
-- `500 Internal Server Error` - Authentication error
+| Status | Code                  | Message                        |
+| ------ | --------------------- | ------------------------------ |
+| 400    | VALIDATION_ERROR      | Email and password required    |
+| 401    | INVALID_CREDENTIALS   | Invalid email or password      |
+| 429    | RATE_LIMIT_EXCEEDED   | Too many login attempts        |
 
 ---
 
-#### POST `/api/auth/logout`
+#### POST /api/auth/logout
 
-End the current session.
+Log out the current user.
 
-**Authentication:** Required
+**Headers:**
 
-**Response:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
 
 ```json
 {
-  "message": "Logout successful"
+  "message": "Successfully logged out"
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Logout successful
+**Error Responses:**
 
-**Error Codes:**
-- `500 Internal Server Error` - Logout error
+| Status | Code           | Message              |
+| ------ | -------------- | -------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated    |
 
 ---
 
-#### POST `/api/auth/forgot-password`
+#### POST /api/auth/reset-password
 
-Request password reset email.
-
-**Authentication:** None required
+Request a password reset email.
 
 **Request Body:**
 
@@ -1329,252 +135,789 @@ Request password reset email.
 }
 ```
 
-**Response:**
+**Response (200 OK):**
 
 ```json
 {
-  "message": "If an account exists with this email, a password reset link has been sent."
+  "message": "Password reset email sent"
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Request processed (always returns 200 for security)
+**Error Responses:**
 
-**Error Codes:**
-- `400 Bad Request` - Invalid email format
-- `429 Too Many Requests` - Rate limit exceeded
-- `500 Internal Server Error` - Server error
+| Status | Code                  | Message                        |
+| ------ | --------------------- | ------------------------------ |
+| 400    | VALIDATION_ERROR      | Invalid email format           |
+| 429    | RATE_LIMIT_EXCEEDED   | Too many reset attempts        |
 
 ---
 
-#### POST `/api/auth/reset-password`
+#### POST /api/auth/update-password
 
-Reset password using token from email.
-
-**Authentication:** None required (token-based)
+Update password using reset token.
 
 **Request Body:**
 
 ```json
 {
-  "token": "reset-token-from-email",
   "password": "newSecurePassword123"
 }
 ```
 
-**Validation Rules:**
-- `token` (required): Valid reset token
-- `password` (required): Minimum 8 characters
+**Headers:**
 
-**Response:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
 
 ```json
 {
-  "message": "Password reset successful. Please log in with your new password."
+  "message": "Password updated successfully"
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Password reset successful
+**Error Responses:**
 
-**Error Codes:**
-- `400 Bad Request` - Validation error or invalid/expired token
-- `500 Internal Server Error` - Server error
+| Status | Code                  | Message                             |
+| ------ | --------------------- | ----------------------------------- |
+| 400    | VALIDATION_ERROR      | Password does not meet requirements |
+| 401    | UNAUTHORIZED          | Invalid or expired token            |
 
 ---
 
-### 2.9 Admin Endpoints
+### 2.2 Profiles
 
-#### GET `/api/admin/import-jobs`
+#### GET /api/profile
 
-Retrieve import job history (last 30 days).
+Get the current user's profile.
 
-**Authentication:** Required (Admin only)
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "uuid",
+  "onboarding_completed": false,
+  "favorite_type": "fire",
+  "favorite_set": "sv04.5",
+  "total_cards_count": 150,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T10:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code           | Message                |
+| ------ | -------------- | ---------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated      |
+| 404    | NOT_FOUND      | Profile not found      |
+
+---
+
+#### PATCH /api/profile
+
+Update the current user's profile.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "onboarding_completed": true,
+  "favorite_type": "water",
+  "favorite_set": "sv05"
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "uuid",
+  "onboarding_completed": true,
+  "favorite_type": "water",
+  "favorite_set": "sv05",
+  "total_cards_count": 150,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T12:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code              | Message                           |
+| ------ | ----------------- | --------------------------------- |
+| 400    | VALIDATION_ERROR  | Invalid favorite_type value       |
+| 401    | UNAUTHORIZED      | Not authenticated                 |
+| 404    | NOT_FOUND         | Profile not found                 |
+
+---
+
+### 2.3 Sets
+
+#### GET /api/sets
+
+Get all available card sets with pagination.
 
 **Query Parameters:**
 
-| Parameter | Type    | Required | Description                                           |
-| --------- | ------- | -------- | ----------------------------------------------------- |
-| `status`  | string  | No       | Filter by status: pending, running, completed, failed |
-| `page`    | integer | No       | Page number (default: 1)                              |
-| `limit`   | integer | No       | Items per page (default: 20)                          |
+| Parameter | Type    | Default | Description                                   |
+| --------- | ------- | ------- | --------------------------------------------- |
+| page      | integer | 1       | Page number (1-indexed)                       |
+| limit     | integer | 20      | Items per page (max: 100)                     |
+| sort      | string  | name    | Sort field: `name`, `release_date`, `series`  |
+| order     | string  | asc     | Sort order: `asc`, `desc`                     |
+| search    | string  | -       | Filter by set name (partial match)            |
+| series    | string  | -       | Filter by series name (exact match)           |
 
-**Response:**
+**Response (200 OK):**
 
 ```json
 {
   "data": [
     {
-      "id": "uuid",
-      "jobType": "csv_import",
-      "status": "completed",
-      "startedAt": "2024-01-01T04:00:00Z",
-      "completedAt": "2024-01-01T04:05:30Z",
-      "duration": 330,
-      "totalRecords": 15000,
-      "successCount": 14995,
-      "failureCount": 5,
-      "errorDetails": null,
-      "triggeredBy": null,
-      "createdAt": "2024-01-01T04:00:00Z"
+      "id": "sv04.5",
+      "name": "Surging Sparks",
+      "series": "Scarlet & Violet",
+      "total_cards": 191,
+      "release_date": "2024-11-08",
+      "logo_url": "https://cdn.tcgdex.net/sets/sv/sv04.5/logo.png",
+      "symbol_url": "https://cdn.tcgdex.net/sets/sv/sv04.5/symbol.png"
     }
   ],
   "pagination": {
     "page": 1,
     "limit": 20,
-    "totalItems": 30,
-    "totalPages": 2
+    "total_items": 150,
+    "total_pages": 8
   }
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Jobs retrieved successfully
+**Error Responses:**
 
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Admin access required
-- `500 Internal Server Error` - Database error
+| Status | Code              | Message                          |
+| ------ | ----------------- | -------------------------------- |
+| 400    | VALIDATION_ERROR  | Invalid pagination parameters    |
 
 ---
 
-#### GET `/api/admin/import-jobs/:jobId`
+#### GET /api/sets/:setId
 
-Retrieve details of a specific import job.
-
-**Authentication:** Required (Admin only)
+Get a specific set by ID.
 
 **Path Parameters:**
 
-| Parameter | Type | Description        |
-| --------- | ---- | ------------------ |
-| `jobId`   | uuid | Import job ID      |
+| Parameter | Type   | Description            |
+| --------- | ------ | ---------------------- |
+| setId     | string | Unique set identifier  |
 
-**Response:**
+**Response (200 OK):**
 
 ```json
 {
-  "data": {
-    "id": "uuid",
-    "jobType": "csv_import",
-    "status": "completed",
-    "startedAt": "2024-01-01T04:00:00Z",
-    "completedAt": "2024-01-01T04:05:30Z",
-    "duration": 330,
-    "totalRecords": 15000,
-    "successCount": 14995,
-    "failureCount": 5,
-    "errorDetails": [
-      {
-        "row": 1234,
-        "error": "Invalid card number format",
-        "data": {"externalId": "invalid-id"}
-      }
-    ],
-    "triggeredBy": {
-      "id": "uuid",
-      "displayName": "Admin User"
-    },
-    "createdAt": "2024-01-01T04:00:00Z"
+  "id": "sv04.5",
+  "name": "Surging Sparks",
+  "series": "Scarlet & Violet",
+  "total_cards": 191,
+  "release_date": "2024-11-08",
+  "logo_url": "https://cdn.tcgdex.net/sets/sv/sv04.5/logo.png",
+  "symbol_url": "https://cdn.tcgdex.net/sets/sv/sv04.5/symbol.png",
+  "last_synced_at": "2026-01-10T00:00:00Z",
+  "created_at": "2024-11-01T00:00:00Z",
+  "updated_at": "2026-01-10T00:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code       | Message             |
+| ------ | ---------- | ------------------- |
+| 404    | NOT_FOUND  | Set not found       |
+
+---
+
+#### GET /api/sets/:setId/completion
+
+Get user's completion progress for a specific set (authenticated).
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+| Parameter | Type   | Description            |
+| --------- | ------ | ---------------------- |
+| setId     | string | Unique set identifier  |
+
+**Response (200 OK):**
+
+```json
+{
+  "set_id": "sv04.5",
+  "set_name": "Surging Sparks",
+  "total_cards": 191,
+  "owned_cards": 45,
+  "completion_percentage": 23.56
+}
+```
+
+**Error Responses:**
+
+| Status | Code           | Message             |
+| ------ | -------------- | ------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated   |
+| 404    | NOT_FOUND      | Set not found       |
+
+---
+
+### 2.4 Cards
+
+#### GET /api/cards
+
+Search and browse cards with filtering and pagination.
+
+**Query Parameters:**
+
+| Parameter | Type    | Default | Description                                       |
+| --------- | ------- | ------- | ------------------------------------------------- |
+| page      | integer | 1       | Page number (1-indexed)                           |
+| limit     | integer | 20      | Items per page (max: 100)                         |
+| sort      | string  | name    | Sort field: `name`, `card_number`, `rarity`       |
+| order     | string  | asc     | Sort order: `asc`, `desc`                         |
+| search    | string  | -       | Search by card name (partial match)               |
+| set_id    | string  | -       | Filter by set ID (exact match)                    |
+| types     | string  | -       | Filter by Pokémon types (comma-separated)         |
+| rarity    | string  | -       | Filter by rarity (exact match)                    |
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "sv04.5-1",
+      "set_id": "sv04.5",
+      "name": "Bulbasaur",
+      "card_number": "1/191",
+      "rarity": "◇",
+      "types": ["grass"],
+      "hp": 70,
+      "image_url_small": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/low.webp",
+      "image_url_large": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/high.webp"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total_items": 191,
+    "total_pages": 10
   }
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Job retrieved successfully
+**Error Responses:**
 
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Admin access required
-- `404 Not Found` - Job not found
-- `500 Internal Server Error` - Database error
+| Status | Code                  | Message                          |
+| ------ | --------------------- | -------------------------------- |
+| 400    | VALIDATION_ERROR      | Invalid pagination parameters    |
+| 429    | RATE_LIMIT_EXCEEDED   | Search rate limit exceeded       |
 
 ---
 
-#### POST `/api/admin/import-jobs`
+#### GET /api/cards/:cardId
 
-Trigger a manual import job.
+Get a specific card by ID.
 
-**Authentication:** Required (Admin only)
+**Path Parameters:**
+
+| Parameter | Type   | Description             |
+| --------- | ------ | ----------------------- |
+| cardId    | string | Unique card identifier  |
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "sv04.5-1",
+  "set_id": "sv04.5",
+  "name": "Bulbasaur",
+  "card_number": "1/191",
+  "rarity": "◇",
+  "types": ["grass"],
+  "hp": 70,
+  "image_url_small": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/low.webp",
+  "image_url_large": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/high.webp",
+  "set": {
+    "id": "sv04.5",
+    "name": "Surging Sparks",
+    "series": "Scarlet & Violet"
+  },
+  "last_synced_at": "2026-01-10T00:00:00Z",
+  "created_at": "2024-11-01T00:00:00Z",
+  "updated_at": "2026-01-10T00:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code       | Message             |
+| ------ | ---------- | ------------------- |
+| 404    | NOT_FOUND  | Card not found      |
+
+---
+
+### 2.5 User Cards (Collection)
+
+#### GET /api/collection
+
+Get the current user's card collection with filtering and pagination.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+
+| Parameter  | Type    | Default | Description                                        |
+| ---------- | ------- | ------- | -------------------------------------------------- |
+| page       | integer | 1       | Page number (1-indexed)                            |
+| limit      | integer | 20      | Items per page (max: 100)                          |
+| sort       | string  | name    | Sort field: `name`, `created_at`, `quantity`       |
+| order      | string  | asc     | Sort order: `asc`, `desc`                          |
+| set_id     | string  | -       | Filter by set ID                                   |
+| variant    | string  | -       | Filter by variant: `normal`, `reverse`, `holo`, `firstEdition` |
+| wishlisted | boolean | -       | Filter by wishlist status                          |
+| search     | string  | -       | Search by card name                                |
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "id": "user-card-uuid",
+      "card_id": "sv04.5-1",
+      "variant": "normal",
+      "quantity": 2,
+      "wishlisted": false,
+      "created_at": "2026-01-11T10:00:00Z",
+      "updated_at": "2026-01-11T10:00:00Z",
+      "card": {
+        "id": "sv04.5-1",
+        "name": "Bulbasaur",
+        "set_id": "sv04.5",
+        "card_number": "1/191",
+        "rarity": "◇",
+        "types": ["grass"],
+        "image_url_small": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/low.webp"
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total_items": 150,
+    "total_pages": 8
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Code              | Message                          |
+| ------ | ----------------- | -------------------------------- |
+| 400    | VALIDATION_ERROR  | Invalid query parameters         |
+| 401    | UNAUTHORIZED      | Not authenticated                |
+
+---
+
+#### POST /api/collection
+
+Add a card to the user's collection. If the card+variant already exists, quantity is increased.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
 
 **Request Body:**
 
 ```json
 {
-  "jobType": "csv_import"
+  "card_id": "sv04.5-1",
+  "variant": "normal",
+  "quantity": 1
 }
 ```
 
-**Validation Rules:**
-- `jobType` (required): Valid job type (e.g., `csv_import`)
-- No job of same type can be currently running
-
-**Response:**
+**Response (201 Created):**
 
 ```json
 {
-  "data": {
-    "id": "uuid",
-    "jobType": "csv_import",
-    "status": "pending",
-    "createdAt": "2024-01-01T12:00:00Z"
-  },
-  "message": "Import job triggered successfully"
-}
-```
-
-**Success Codes:**
-- `202 Accepted` - Job queued successfully
-
-**Error Codes:**
-- `400 Bad Request` - Invalid job type
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Admin access required
-- `409 Conflict` - Job of same type already running
-- `500 Internal Server Error` - Server error
-
----
-
-#### GET `/api/admin/statistics`
-
-Retrieve aggregate platform statistics.
-
-**Authentication:** Required (Admin only)
-
-**Response:**
-
-```json
-{
-  "data": {
-    "users": {
-      "total": 1500,
-      "active": 1450,
-      "softDeleted": 50,
-      "newThisWeek": 25
-    },
-    "collections": {
-      "totalEntries": 75000,
-      "totalCards": 125000,
-      "uniqueCardsTracked": 12000,
-      "averageCardsPerUser": 86
-    },
-    "catalog": {
-      "totalSets": 150,
-      "totalCards": 15000,
-      "lastImportAt": "2024-01-01T04:00:00Z",
-      "pricesFreshnessHours": 8
-    }
+  "id": "user-card-uuid",
+  "card_id": "sv04.5-1",
+  "variant": "normal",
+  "quantity": 1,
+  "wishlisted": false,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T10:00:00Z",
+  "card": {
+    "id": "sv04.5-1",
+    "name": "Bulbasaur",
+    "set_id": "sv04.5",
+    "card_number": "1/191",
+    "rarity": "◇"
   }
 }
 ```
 
-**Success Codes:**
-- `200 OK` - Statistics retrieved successfully
+**Response (200 OK) - When quantity updated:**
 
-**Error Codes:**
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Admin access required
-- `500 Internal Server Error` - Database error
+```json
+{
+  "id": "user-card-uuid",
+  "card_id": "sv04.5-1",
+  "variant": "normal",
+  "quantity": 3,
+  "wishlisted": false,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T12:00:00Z",
+  "message": "Quantity updated for existing card"
+}
+```
+
+**Error Responses:**
+
+| Status | Code                   | Message                                      |
+| ------ | ---------------------- | -------------------------------------------- |
+| 400    | VALIDATION_ERROR       | Invalid variant value                        |
+| 400    | VALIDATION_ERROR       | Quantity must be between 1 and 1000          |
+| 401    | UNAUTHORIZED           | Not authenticated                            |
+| 404    | NOT_FOUND              | Card not found                               |
+| 409    | CARD_LIMIT_EXCEEDED    | Collection limit of 10,000 cards exceeded    |
+| 409    | VARIANT_LIMIT_EXCEEDED | Variant limit of 1,000 copies exceeded       |
+| 429    | RATE_LIMIT_EXCEEDED    | Card addition rate limit exceeded            |
+
+---
+
+#### GET /api/collection/:userCardId
+
+Get a specific collection entry.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+| Parameter   | Type | Description                    |
+| ----------- | ---- | ------------------------------ |
+| userCardId  | uuid | Unique collection entry ID     |
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "user-card-uuid",
+  "card_id": "sv04.5-1",
+  "variant": "normal",
+  "quantity": 2,
+  "wishlisted": false,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T10:00:00Z",
+  "card": {
+    "id": "sv04.5-1",
+    "name": "Bulbasaur",
+    "set_id": "sv04.5",
+    "card_number": "1/191",
+    "rarity": "◇",
+    "types": ["grass"],
+    "hp": 70,
+    "image_url_small": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/low.webp",
+    "image_url_large": "https://cdn.tcgdex.net/cards/sv/sv04.5/1/high.webp"
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Code           | Message                     |
+| ------ | -------------- | --------------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated           |
+| 403    | FORBIDDEN      | Access denied               |
+| 404    | NOT_FOUND      | Collection entry not found  |
+
+---
+
+#### PATCH /api/collection/:userCardId
+
+Update a collection entry (quantity, wishlist status).
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+| Parameter   | Type | Description                    |
+| ----------- | ---- | ------------------------------ |
+| userCardId  | uuid | Unique collection entry ID     |
+
+**Request Body:**
+
+```json
+{
+  "quantity": 3,
+  "wishlisted": true
+}
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "id": "user-card-uuid",
+  "card_id": "sv04.5-1",
+  "variant": "normal",
+  "quantity": 3,
+  "wishlisted": true,
+  "created_at": "2026-01-11T10:00:00Z",
+  "updated_at": "2026-01-11T12:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code                   | Message                                      |
+| ------ | ---------------------- | -------------------------------------------- |
+| 400    | VALIDATION_ERROR       | Quantity must be between 1 and 1000          |
+| 401    | UNAUTHORIZED           | Not authenticated                            |
+| 403    | FORBIDDEN              | Access denied                                |
+| 404    | NOT_FOUND              | Collection entry not found                   |
+| 409    | CARD_LIMIT_EXCEEDED    | Collection limit of 10,000 cards exceeded    |
+
+---
+
+#### DELETE /api/collection/:userCardId
+
+Remove a card from the user's collection.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Path Parameters:**
+
+| Parameter   | Type | Description                    |
+| ----------- | ---- | ------------------------------ |
+| userCardId  | uuid | Unique collection entry ID     |
+
+**Response (204 No Content)**
+
+**Error Responses:**
+
+| Status | Code           | Message                     |
+| ------ | -------------- | --------------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated           |
+| 403    | FORBIDDEN      | Access denied               |
+| 404    | NOT_FOUND      | Collection entry not found  |
+
+---
+
+### 2.6 Collection Statistics
+
+#### GET /api/collection/stats
+
+Get statistics about the user's collection.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "total_cards": 150,
+  "unique_cards": 75,
+  "wishlisted_count": 10,
+  "sets_with_cards": 5,
+  "most_collected_set": {
+    "id": "sv04.5",
+    "name": "Surging Sparks",
+    "owned": 45,
+    "total": 191
+  }
+}
+```
+
+**Error Responses:**
+
+| Status | Code           | Message             |
+| ------ | -------------- | ------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated   |
+
+---
+
+#### GET /api/collection/stats/sets
+
+Get set completion statistics for the user.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+
+| Parameter       | Type    | Default | Description                                   |
+| --------------- | ------- | ------- | --------------------------------------------- |
+| include_empty   | boolean | false   | Include sets with 0 cards owned               |
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "set_id": "sv04.5",
+      "set_name": "Surging Sparks",
+      "series": "Scarlet & Violet",
+      "total_cards": 191,
+      "owned_cards": 45,
+      "completion_percentage": 23.56
+    },
+    {
+      "set_id": "sv05",
+      "set_name": "Temporal Forces",
+      "series": "Scarlet & Violet",
+      "total_cards": 162,
+      "owned_cards": 30,
+      "completion_percentage": 18.52
+    }
+  ]
+}
+```
+
+**Error Responses:**
+
+| Status | Code           | Message             |
+| ------ | -------------- | ------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated   |
+
+---
+
+### 2.7 Export
+
+#### GET /api/collection/export
+
+Export the user's collection as CSV.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+
+```
+Content-Type: text/csv
+Content-Disposition: attachment; filename="collection_20260111_120000.csv"
+
+card_id,name,set,card_number,rarity,quantity,variant,wishlisted
+sv04.5-1,Bulbasaur,Surging Sparks,1/191,◇,2,normal,false
+sv04.5-25,Pikachu,Surging Sparks,25/191,◇,1,holo,true
+```
+
+**Error Responses:**
+
+| Status | Code           | Message             |
+| ------ | -------------- | ------------------- |
+| 401    | UNAUTHORIZED   | Not authenticated   |
+
+---
+
+### 2.8 Analytics Events
+
+#### POST /api/analytics/events
+
+Track a user action for analytics.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>  (optional for anonymous events)
+```
+
+**Request Body:**
+
+```json
+{
+  "event_type": "card_viewed",
+  "event_data": {
+    "card_id": "sv04.5-1",
+    "source": "search"
+  }
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "event-uuid",
+  "event_type": "card_viewed",
+  "created_at": "2026-01-11T10:00:00Z"
+}
+```
+
+**Error Responses:**
+
+| Status | Code              | Message                    |
+| ------ | ----------------- | -------------------------- |
+| 400    | VALIDATION_ERROR  | Invalid event_type         |
+
+**Supported Event Types:**
+
+| Event Type          | Description                      | Required Data              |
+| ------------------- | -------------------------------- | -------------------------- |
+| user_registered     | User completed registration      | -                          |
+| user_login          | User logged in                   | -                          |
+| card_added          | Card added to collection         | card_id, variant, quantity |
+| card_removed        | Card removed from collection     | card_id                    |
+| card_viewed         | Card details viewed              | card_id                    |
+| search_performed    | Search query executed            | query, filters             |
+| collection_exported | Collection exported to CSV       | card_count                 |
 
 ---
 
@@ -1582,230 +925,194 @@ Retrieve aggregate platform statistics.
 
 ### Authentication Mechanism
 
-The API uses **Supabase Auth** with JWT tokens for authentication.
+The API uses Supabase Auth with JWT tokens for authentication.
 
-#### Token Handling
+#### Token Flow
 
-- **Access tokens** are short-lived JWTs (1 hour default)
-- **Refresh tokens** are used to obtain new access tokens
-- Tokens are stored in HTTP-only cookies for security
-- The `Authorization: Bearer <token>` header is also supported
+1. User authenticates via `/api/auth/login` or `/api/auth/register`
+2. Supabase returns an `access_token` (JWT) and `refresh_token`
+3. Client includes `access_token` in the `Authorization` header for subsequent requests
+4. Tokens are verified on each request via Supabase middleware
+5. Expired tokens can be refreshed using the `refresh_token`
 
-#### Session Management
+#### Request Header
 
-- Sessions persist based on the "Remember me" preference (US-002)
-- Sessions are invalidated on logout (US-004)
-- Session expiration triggers re-authentication flow (US-033)
+```
+Authorization: Bearer <access_token>
+```
 
-### Authorization Levels
+### Authorization Rules
 
-| Level           | Description                                    | Access                                     |
-| --------------- | ---------------------------------------------- | ------------------------------------------ |
-| **Anonymous**   | Unauthenticated users                          | Read-only access to catalog, sets, cards   |
-| **Authenticated** | Logged-in users with verified email          | Full collection and list management        |
-| **Admin**       | Users with `is_admin = true` in user_profiles  | All above + admin endpoints                |
+| Resource            | Anonymous | Authenticated | Notes                                   |
+| ------------------- | --------- | ------------- | --------------------------------------- |
+| Sets (read)         | ✅        | ✅            | Public data                             |
+| Cards (read)        | ✅        | ✅            | Public data                             |
+| Cards (search)      | ✅        | ✅            | Rate limited                            |
+| Profile             | ❌        | ✅ (own only) | RLS enforced                            |
+| Collection          | ❌        | ✅ (own only) | RLS enforced                            |
+| Collection Stats    | ❌        | ✅ (own only) | RLS enforced                            |
+| Export              | ❌        | ✅ (own only) | RLS enforced                            |
+| Analytics (write)   | ✅        | ✅            | Anonymous events have null user_id      |
 
-### Rate Limiting
+### Row-Level Security (RLS)
 
-| Endpoint Category | Rate Limit           | Window    |
-| ----------------- | -------------------- | --------- |
-| Authentication    | 5 requests           | 1 minute  |
-| Search            | 30 requests          | 1 minute  |
-| Collection Write  | 60 requests          | 1 minute  |
-| General Read      | 100 requests         | 1 minute  |
-| Admin Endpoints   | 30 requests          | 1 minute  |
+All user data is protected by Supabase RLS policies:
 
-Rate limit headers are included in responses:
-- `X-RateLimit-Limit`: Maximum requests allowed
-- `X-RateLimit-Remaining`: Requests remaining in window
-- `X-RateLimit-Reset`: Unix timestamp when limit resets
+- **profiles**: Users can only read/update their own profile
+- **user_cards**: Users can only CRUD their own collection entries
+- **cards/sets**: Public read access for all users
+- **analytics_events**: Users can only insert events with their own user_id (or null)
 
-### Security Headers
+### Session Management
 
-All responses include:
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `X-XSS-Protection: 1; mode=block`
+- Sessions persist across browser sessions until explicit logout
+- Access tokens expire after 1 hour (configurable in Supabase)
+- Refresh tokens are used to obtain new access tokens
+- Logout invalidates all session data
 
 ---
 
 ## 4. Validation and Business Logic
 
-### 4.1 Validation Rules by Resource
+### 4.1 Input Validation
 
-#### Collection Entries
+All input validation is performed using Zod schemas.
 
-| Field              | Type          | Validation                                                |
-| ------------------ | ------------- | --------------------------------------------------------- |
-| `cardId`           | UUID          | Required, must exist in cards table                       |
-| `conditionId`      | Integer       | Required, must exist in card_conditions table             |
-| `quantity`         | Integer       | Required, must be > 0                                     |
-| `gradingCompanyId` | Integer       | Optional, must exist in grading_companies table           |
-| `gradeValue`       | Decimal(3,1)  | Optional, range 1.0-10.0, required if company provided    |
-| `purchasePrice`    | Decimal(10,2) | Optional, must be >= 0                                    |
-| `notes`            | String        | Optional, max 500 characters                              |
+#### Authentication Validation
 
-**Business Rule:** If `gradeValue` is provided, `gradingCompanyId` must also be provided (US-019).
+| Field    | Rules                                                           |
+| -------- | --------------------------------------------------------------- |
+| email    | Valid email format, required                                    |
+| password | Min 8 characters, required                                      |
 
-#### User Lists
+#### Profile Validation
 
-| Field       | Type    | Validation                                  |
-| ----------- | ------- | ------------------------------------------- |
-| `name`      | String  | Required, 1-50 characters, unique per user  |
-| `sortOrder` | Integer | Optional, >= 0                              |
+| Field                | Rules                                                      |
+| -------------------- | ---------------------------------------------------------- |
+| onboarding_completed | Boolean                                                    |
+| favorite_type        | Optional string (Pokémon type)                             |
+| favorite_set         | Optional string (valid set ID)                             |
 
-**Business Rule:** Maximum 10 lists per user (FR-004).
+#### Collection Entry Validation
 
-#### Authentication
+| Field     | Rules                                                             |
+| --------- | ----------------------------------------------------------------- |
+| card_id   | Required, must exist in cards table                               |
+| variant   | Required, enum: `normal`, `reverse`, `holo`, `firstEdition`       |
+| quantity  | Integer, range 1-1000, default 1                                  |
+| wishlisted| Boolean, default false                                            |
 
-| Field      | Type   | Validation                      |
-| ---------- | ------ | ------------------------------- |
-| `email`    | String | Required, valid email format    |
-| `password` | String | Required, minimum 8 characters  |
+#### Pagination Validation
+
+| Field | Rules                              |
+| ----- | ---------------------------------- |
+| page  | Integer, min 1, default 1          |
+| limit | Integer, range 1-100, default 20   |
+| sort  | Enum of allowed sort fields        |
+| order | Enum: `asc`, `desc`, default `asc` |
 
 ### 4.2 Business Logic Implementation
 
-#### Duplicate Entry Handling (US-031)
+#### Duplicate Card Handling (US-015)
 
 When adding a card to collection:
-1. Check if entry exists with same `user_id`, `card_id`, `condition_id`, `grading_company_id`, `grade_value`
-2. If exists, return `409 Conflict` with option to update existing entry
-3. Different conditions/grades create separate entries (by design)
 
-#### Collection Value Calculation (US-016, US-017)
+1. Check if `user_id + card_id + variant` already exists
+2. If exists: increment quantity by the specified amount
+3. If not exists: create new user_card entry
+4. Return appropriate response (200 for update, 201 for create)
 
 ```
-totalMarketValue = SUM(entry.quantity × card.marketPrice)
-totalPurchaseCost = SUM(entry.quantity × entry.purchasePrice)
-totalProfitLoss = totalMarketValue - totalPurchaseCost
+POST /api/collection
+- If card+variant exists → Update quantity, return 200
+- If card+variant new → Create entry, return 201
 ```
 
-Uses most recent `card_prices` record with `price_type = 'market'`.
+#### Card Limit Enforcement (US-018)
 
-#### List Limit Enforcement (FR-004, US-032)
+Total card limit: 10,000 cards per user (sum of all quantities)
 
-Enforced at:
-1. Database level: Trigger `check_user_list_limit()` 
-2. API level: Check count before insert, return `422` if limit reached
+1. Before INSERT/UPDATE on user_cards, calculate new total
+2. If new total > 10,000, reject with 409 CARD_LIMIT_EXCEEDED
+3. Return warning when total > 9,500
 
-#### Account Deletion Flow (US-005, US-006)
+Database trigger `check_card_limit()` enforces at DB level.
 
-1. `DELETE /api/profile` sets `deleted_at = now()` (soft delete)
-2. User can login within 30 days to restore (`deleted_at = null`)
-3. Scheduled job permanently deletes accounts where `deleted_at < now() - interval '30 days'`
+#### Per-Variant Limit
 
-#### Price Data Freshness (US-012)
+Per-variant limit: 1,000 copies per card+variant combination
 
-- Prices include `lastUpdated` timestamp from `card_prices.fetched_at`
-- Frontend displays "Stale" indicator if > 24 hours old
-- Daily import at 4:00 AM UTC keeps prices fresh (FR-007)
+1. Validate quantity constraint: `1 <= quantity <= 1000`
+2. Reject with 409 VARIANT_LIMIT_EXCEEDED if exceeded
 
-#### Search Performance (FR-002)
+Database CHECK constraint enforces at DB level.
 
-- Full-text search uses PostgreSQL GIN indexes
-- Debounce at API level: return cached results if same query within 300ms
-- Results limited to 20 by default for <200ms response time
-- Search endpoint returns `hasMore` indicator for pagination
+#### Set Completion Calculation (US-023)
 
-### 4.3 Error Response Format
+```
+completion_percentage = (unique_owned_cards / set.total_cards) * 100
+```
 
-All error responses follow a consistent format:
+- Based on unique cards, not quantities
+- Different variants of same card count as one unique card
+
+#### CSV Export Format (US-024)
+
+Export includes the following columns:
+
+```csv
+card_id,name,set,card_number,rarity,quantity,variant,wishlisted
+```
+
+Filename format: `collection_YYYYMMDD_HHMMSS.csv`
+
+### 4.3 Rate Limiting
+
+| Action                | Limit           | Window    |
+| --------------------- | --------------- | --------- |
+| Card additions        | 100 requests    | 1 minute  |
+| Search queries        | 60 requests     | 1 minute  |
+| Login attempts        | 5 attempts      | 15 minutes|
+| Password reset        | 3 requests      | 1 hour    |
+| Registration          | 5 requests      | 1 hour    |
+
+Rate limiting is implemented at the middleware level using request tracking.
+
+### 4.4 Error Response Format
+
+All API errors follow a consistent format:
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Validation failed",
-    "details": [
-      {
-        "field": "quantity",
-        "message": "Quantity must be greater than 0"
-      }
-    ]
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": {}
   }
 }
 ```
 
-#### Error Codes
+#### Standard Error Codes
 
-| Code                  | HTTP Status | Description                                |
-| --------------------- | ----------- | ------------------------------------------ |
-| `VALIDATION_ERROR`    | 400         | Request body failed validation             |
-| `INVALID_PARAMETER`   | 400         | Invalid query or path parameter            |
-| `UNAUTHORIZED`        | 401         | Authentication required                    |
-| `FORBIDDEN`           | 403         | Insufficient permissions                   |
-| `NOT_FOUND`           | 404         | Resource not found                         |
-| `CONFLICT`            | 409         | Resource conflict (duplicate, etc.)        |
-| `LIMIT_EXCEEDED`      | 422         | Business rule limit exceeded               |
-| `RATE_LIMITED`        | 429         | Too many requests                          |
-| `INTERNAL_ERROR`      | 500         | Unexpected server error                    |
+| Code                   | HTTP Status | Description                              |
+| ---------------------- | ----------- | ---------------------------------------- |
+| VALIDATION_ERROR       | 400         | Request body or params failed validation |
+| UNAUTHORIZED           | 401         | Missing or invalid authentication        |
+| FORBIDDEN              | 403         | Authenticated but not authorized         |
+| NOT_FOUND              | 404         | Resource does not exist                  |
+| EMAIL_EXISTS           | 409         | Email already registered                 |
+| CARD_LIMIT_EXCEEDED    | 409         | 10,000 card limit exceeded               |
+| VARIANT_LIMIT_EXCEEDED | 409         | 1,000 per-variant limit exceeded         |
+| RATE_LIMIT_EXCEEDED    | 429         | Too many requests                        |
+| INTERNAL_ERROR         | 500         | Unexpected server error                  |
 
----
+### 4.5 Caching Strategy
 
-## 5. API Versioning
+| Resource    | Cache Strategy                   | TTL      |
+| ----------- | -------------------------------- | -------- |
+| Sets        | Cache on server, refresh daily   | 24 hours |
+| Cards       | Cache on server, refresh daily   | 24 hours |
+| Collection  | No cache (real-time)             | -        |
+| Stats       | Short cache, invalidate on write | 5 min    |
 
-The API currently does not use versioning (v1 is implicit). Future breaking changes will introduce versioned endpoints:
-
-- `/api/v2/...` for breaking changes
-- Original `/api/...` endpoints maintained for backwards compatibility
-
----
-
-## 6. Implementation Notes
-
-### Astro Server Endpoints
-
-All endpoints are implemented as Astro server endpoints in `src/pages/api/`:
-
-```typescript
-// src/pages/api/cards/index.ts
-export const prerender = false;
-
-import { z } from "zod";
-import type { APIRoute } from "astro";
-
-export const GET: APIRoute = async ({ locals, request }) => {
-  const supabase = locals.supabase;
-  // Implementation...
-};
-```
-
-### Supabase Client Access
-
-Access Supabase client via `context.locals.supabase` (injected by middleware):
-
-```typescript
-const { data, error } = await context.locals.supabase
-  .from("cards")
-  .select("*")
-  .limit(20);
-```
-
-### Input Validation
-
-Use Zod schemas for request validation:
-
-```typescript
-const createCollectionEntrySchema = z.object({
-  cardId: z.string().uuid(),
-  conditionId: z.number().int().positive(),
-  quantity: z.number().int().positive(),
-  gradingCompanyId: z.number().int().positive().optional(),
-  gradeValue: z.number().min(1).max(10).optional(),
-  purchasePrice: z.number().nonnegative().optional(),
-  notes: z.string().max(500).optional(),
-});
-```
-
-### Response Helpers
-
-Create consistent response helpers:
-
-```typescript
-// src/lib/api/responses.ts
-export const successResponse = (data: unknown, status = 200) => 
-  new Response(JSON.stringify({ data }), { status });
-
-export const errorResponse = (code: string, message: string, status: number, details?: unknown) =>
-  new Response(JSON.stringify({ error: { code, message, details } }), { status });
-```
+Card and set data is cached in the database (`last_synced_at` timestamp). External TCGDex API is used for syncing, not direct user queries.

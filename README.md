@@ -1,85 +1,239 @@
 # TCGCollectr
 
-![Node Version](https://img.shields.io/badge/Node-22.14.0-5FA04E?logo=node.js&logoColor=white)
-![Astro](https://img.shields.io/badge/Astro-5.16-FF5D01?logo=astro&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![License](https://img.shields.io/badge/License-Apache--2.0-blue)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.0.1-green.svg)](package.json)
+[![Node Version](https://img.shields.io/badge/node-22.14.0-brightgreen.svg)](.nvmrc)
 
-> Pokémon TCG collection management platform that blends Astro islands, React interactivity, and Supabase services for fast, data-driven experiences.
+A Progressive Web Application for Pokémon Trading Card Game collectors to manage and track their card collections.
 
 ## Table of Contents
-- [1. Project Name](#1-project-name)
-- [2. Project Description](#2-project-description)
-- [3. Tech Stack](#3-tech-stack)
-- [4. Getting Started Locally](#4-getting-started-locally)
-- [5. Available Scripts](#5-available-scripts)
-- [6. Project Scope](#6-project-scope)
-- [7. Project Status](#7-project-status)
-- [8. License](#8-license)
 
-## 1. Project Name
-TCGCollectr — Trading Card Game collection manager focused on Pokémon TCG collectors.
+- [Project Description](#project-description)
+- [Tech Stack](#tech-stack)
+- [Getting Started Locally](#getting-started-locally)
+- [Available Scripts](#available-scripts)
+- [Project Scope](#project-scope)
+- [Project Status](#project-status)
+- [License](#license)
+- [Documentation](#documentation)
 
-## 2. Project Description
-TCGCollectr delivers a searchable, filterable catalog of 15,000+ Pokémon cards with daily pricing from tcgcsv.com and enriched attributes from pokemontcg.io. Authenticated users organize personal collections, track quantities, condition, grading, and purchase price, while Supabase Auth and Row Level Security keep data isolated per user. The application targets an MVP release that prioritizes speed (Astro islands + React 19), accessibility (Tailwind 4 + Shadcn/ui), and operational simplicity (Supabase PostgreSQL, Edge Functions, and pg_cron imports). See [docs/prd.md](docs/prd.md) for the complete product requirements and [docs/tech-stack.md](docs/tech-stack.md) for architectural context.
+## Project Description
 
-## 3. Tech Stack
-| Layer | Technology |
-| --- | --- |
-| Framework | Astro 5 (SSR + islands) with React 19 components |
-| Language | TypeScript 5 across frontend and backend |
-| Styling | Tailwind CSS 4, Shadcn/ui (New York theme), tw-animate CSS |
-| Backend & Auth | Supabase PostgreSQL, Supabase Auth, Edge Functions, Row Level Security |
-| Tooling | ESLint 9, Prettier (with Astro plugin), Husky + lint-staged, Supabase CLI |
-| Data Sources | tcgcsv.com (daily CSV import) and pokemontcg.io (24h cached API) |
-| Hosting & CI | Azure Static Web Apps, Supabase Cloud, GitHub Actions (planned) |
+TCGCollectr is a comprehensive collection management application designed to help Pokémon TCG collectors catalog and track their physical card collections. The application provides a balanced approach to card information - displaying essential details by default while offering expanded information on demand.
 
-## 4. Getting Started Locally
-1. **Prerequisites**
-	- Node.js 22.14.0 (`.nvmrc` provided; use `nvm use` or install manually).
-	- npm (bundled with Node) or another compatible package manager.
-	- Supabase project with `SUPABASE_URL` and `SUPABASE_KEY` env values.
-2. **Install dependencies**
-	```bash
-	npm install
-	```
-3. **Configure environment**
-	- Copy `.env.example` (create if missing) to `.env` and supply Supabase credentials plus any Astro/Supabase settings documented in [docs/tech-stack.md](docs/tech-stack.md).
-4. **Run the dev server**
-	```bash
-	npm run dev
-	```
-	- Astro serves the site with hot reload at `http://localhost:4321` (default).
-5. **Lint and format (optional but recommended)**
-	```bash
-	npm run lint
-	npm run format
-	```
-6. **Build for production**
-	```bash
-	npm run build
-	```
-	- Preview the static output via `npm run preview`.
+### Key Features
 
-## 5. Available Scripts
-- `npm run dev` — Start the Astro dev server with SSR, Tailwind, and React integration.
-- `npm run build` — Generate the optimized production build (SSR + static assets).
-- `npm run preview` — Serve the build output locally to verify production behavior.
-- `npm run astro` — Direct access to the Astro CLI for advanced commands.
-- `npm run lint` — Run ESLint (Astro + React + TypeScript rules).
-- `npm run lint:fix` — Auto-fix lint issues where possible.
-- `npm run format` — Run Prettier (with Astro plugin) across the repo.
+- **Card Browsing**: Browse the complete Pokémon TCG catalog without requiring an account
+- **Collection Management**: Track owned cards with quantity and variant support (normal, reverse, holo, firstEdition)
+- **Set Completion Tracking**: Monitor progress toward completing specific card sets
+- **Wishlist**: Flag cards for future acquisition and filter your wishlist
+- **Search & Filter**: Multi-faceted search by card name, set name, and Pokémon type
+- **Data Export**: Export your collection to CSV format
+- **Offline Support**: View cached collection data when offline
+- **Mobile-First Design**: Responsive PWA optimized for mobile devices
 
-## 6. Project Scope
-- **In Scope (MVP)**: Pokémon-only catalog browsing, advanced search/filtering, user authentication, collection CRUD with condition/grade tracking, custom lists (≤10 per user), market price display with freshness indicator, daily tcgcsv.com imports via pg_cron, pokemontcg.io enrichment, admin import dashboard. (See FR-001 to FR-008 in [docs/prd.md](docs/prd.md).)
-- **Out of Scope (Post-MVP)**: Collection export, PWA/offline support, social auth, currency selector, multi-language UX, trend analytics, marketplace features (see “Out of Scope” in [docs/prd.md](docs/prd.md)).
-- **Explicitly Excluded**: OCR scanning, paid APIs, non-Pokémon TCG titles, price trend charts, reseller integrations.
+### Vision
 
-## 7. Project Status
-- **Version**: 0.0.1 (pre-release, under active development).
-- **Milestones**: MVP feature set defined in [docs/prd.md](docs/prd.md); architecture, data flow, and hosting plans documented in [docs/tech-stack.md](docs/tech-stack.md).
-- **Next Steps**: Implement Supabase-backed data import pipeline, build authenticated collection flows, set up CI/CD (GitHub Actions + Azure Static Web Apps), and add automated testing per future [testing guidelines](.github/instructions/testing.instructions.md) once core views stabilize.
+Create the go-to solution for Pokémon TCG collectors who want a straightforward way to track their cards without the complexity of existing solutions.
 
-## 8. License
-Distributed under the Apache License 2.0. See [LICENSE](LICENSE) for full terms.
+## Tech Stack
 
+### Frontend
+
+- **[Astro 5](https://astro.build)** - Fast, modern SSR framework with minimal JavaScript
+- **[React 19](https://react.dev)** - Interactive components where needed
+- **[TypeScript 5](https://www.typescriptlang.org)** - Type-safe code with excellent IDE support
+- **[Tailwind CSS 4](https://tailwindcss.com)** - Utility-first CSS framework
+- **[Shadcn/ui](https://ui.shadcn.com)** - Accessible React component library
+
+### Backend
+
+- **[Supabase](https://supabase.com)** - Backend-as-a-Service providing:
+  - PostgreSQL database
+  - User authentication
+  - Built-in analytics
+  - Can be self-hosted
+
+### Data Source
+
+- **[TCGDex API](https://www.tcgdex.net)** - Free, open-source Pokémon TCG card database
+
+### CI/CD & Hosting
+
+- **GitHub Actions** - Automated CI/CD pipelines
+- **DigitalOcean** - Application hosting via Docker
+
+## Getting Started Locally
+
+### Prerequisites
+
+- Node.js 22.14.0 (use [nvm](https://github.com/nvm-sh/nvm) for easy version management)
+- npm or pnpm
+- Supabase account (for backend services)
+
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/yourusername/tcg-collectr.git
+   cd tcg-collectr
+   ```
+
+2. **Install Node.js version**
+
+   ```bash
+   nvm install
+   nvm use
+   ```
+
+3. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+4. **Set up environment variables**
+
+   Create a `.env` file in the root directory:
+
+   ```env
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_KEY=your_supabase_anon_key
+   ```
+
+5. **Initialize Supabase**
+
+   ```bash
+   npx supabase init
+   npx supabase start
+   ```
+
+6. **Start the development server**
+
+   ```bash
+   npm run dev
+   ```
+
+7. **Open your browser**
+
+   Navigate to `http://localhost:4321`
+
+## Available Scripts
+
+All commands are run from the root of the project:
+
+| Command            | Description                                               |
+| ------------------ | --------------------------------------------------------- |
+| `npm run dev`      | Starts the local development server at `localhost:4321`   |
+| `npm run build`    | Builds the production site to `./dist/`                   |
+| `npm run preview`  | Previews the production build locally before deploying    |
+| `npm run astro`    | Run Astro CLI commands (e.g., `astro add`, `astro check`) |
+| `npm run lint`     | Runs ESLint to check for code quality issues              |
+| `npm run lint:fix` | Automatically fixes ESLint issues where possible          |
+| `npm run format`   | Formats code using Prettier                               |
+
+### Code Quality
+
+The project uses several tools to maintain code quality:
+
+- **ESLint** - Linting with TypeScript, React, and Astro plugins
+- **Prettier** - Code formatting
+- **Husky** - Git hooks for pre-commit checks
+- **lint-staged** - Runs linters on staged files
+
+## Project Scope
+
+### Included in MVP
+
+- ✅ Pokémon TCG cards only
+- ✅ Email/password authentication via Supabase
+- ✅ Card browsing and search (publicly accessible)
+- ✅ Personal collection management
+- ✅ Quantity and variant tracking (normal, reverse, holo, firstEdition)
+- ✅ Wishlist functionality with filtering
+- ✅ Set completion percentage tracking
+- ✅ CSV export
+- ✅ Offline collection viewing (cached data)
+- ✅ English language only (i18n-ready structure)
+- ✅ Responsive PWA design (mobile-first)
+- ✅ WCAG 2.1 Level AA accessibility compliance
+
+### Performance Targets
+
+- Initial page load: < 3 seconds
+- Search response: < 1 second
+- Lazy loading for images
+- Skeleton loading states
+- Rate limiting: 100 card additions/min, 60 searches/min per user
+
+### Not Included (Post-MVP)
+
+- ❌ Condition grading
+- ❌ Price/trend analysis
+- ❌ Camera/OCR card scanning
+- ❌ Social features (sharing, trading)
+- ❌ Marketplace integration
+- ❌ Multi-language support (structure ready)
+- ❌ Non-Pokémon TCG support
+- ❌ Native mobile apps
+
+### User Limits
+
+- Maximum 10,000 cards per user
+- Collection statistics displayed on dashboard
+- No auto-deletion of inactive accounts
+
+## Project Status
+
+**Current Status**: 🚧 In Development
+
+**Version**: 0.0.1 (MVP)
+
+**Timeline**: 8-12 weeks
+
+### Development Phases
+
+1. **Phase 1**: Card browsing functionality ⏳
+2. **Phase 2**: Authentication system
+3. **Phase 3**: Collection management
+4. **Phase 4**: Polish and beta testing
+
+### Success Metrics
+
+The MVP will be measured against:
+
+- User engagement with registered users
+- Collection management activity
+- Search usage patterns
+- Set completion rates
+
+Growth strategy focuses on organic reach via Pokémon TCG communities.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Documentation
+
+Additional documentation can be found in the [`docs/`](docs/) directory:
+
+- [Product Requirements Document](docs/prd.md) - Full PRD with user stories
+- [Tech Stack Details](docs/tech-stack.md) - Detailed technology decisions
+- [API Documentation](docs/api/) - API endpoint implementation details
+
+### Contributing
+
+Contributions are welcome! Please ensure:
+
+- Code follows ESLint and Prettier configurations
+- All tests pass before submitting PR
+- Commit messages are descriptive
+
+### Support
+
+For support and feedback, please open an issue on GitHub or contact via the in-app support link.
+
+---
+
+Made with ❤️ for Pokémon TCG collectors

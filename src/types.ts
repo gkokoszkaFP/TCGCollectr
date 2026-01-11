@@ -1,562 +1,354 @@
 /**
  * Data Transfer Objects (DTOs) and Command Models for TCGCollectr API
  *
- * This file contains type definitions for data exchanged between the API and clients.
- * All types are derived from database entity definitions in database.types.ts.
+ * This file contains all type definitions for API requests and responses.
+ * All DTOs are derived from database entity types defined in database.types.ts
  */
 
-import type { Database } from "./db/database.types";
+import type { Tables } from "./db/database.types";
 
-// ============================================================================
-// Database Entity Type Aliases
-// ============================================================================
-
-type DbTcgType = Database["public"]["Tables"]["tcg_types"]["Row"];
-type DbSet = Database["public"]["Tables"]["sets"]["Row"];
-type DbCard = Database["public"]["Tables"]["cards"]["Row"];
-type DbCardPrice = Database["public"]["Tables"]["card_prices"]["Row"];
-type DbRarity = Database["public"]["Tables"]["rarities"]["Row"];
-type DbCondition = Database["public"]["Tables"]["card_conditions"]["Row"];
-type DbGradingCompany = Database["public"]["Tables"]["grading_companies"]["Row"];
-type DbCollectionEntry = Database["public"]["Tables"]["collection_entries"]["Row"];
-type DbUserList = Database["public"]["Tables"]["user_lists"]["Row"];
-type DbListEntry = Database["public"]["Tables"]["list_entries"]["Row"];
-type DbUserProfile = Database["public"]["Tables"]["user_profiles"]["Row"];
-type DbImportJob = Database["public"]["Tables"]["import_jobs"]["Row"];
-type DbPriceSource = Database["public"]["Tables"]["price_sources"]["Row"];
-
-// ============================================================================
-// Response DTOs
-// ============================================================================
+// =============================================================================
+// AUTHENTICATION DTOs
+// =============================================================================
 
 /**
- * TCG Type DTO - represents a trading card game type (e.g., Pokemon, Magic)
- * GET /api/tcg-types
+ * Request body for user registration
  */
-export interface TcgTypeDto {
-  id: DbTcgType["id"];
-  code: DbTcgType["code"];
-  name: DbTcgType["name"];
+export interface RegisterRequestDTO {
+  email: string;
+  password: string;
 }
 
 /**
- * Set DTO (List View) - represents a card set/expansion in list views
- * GET /api/sets
+ * Request body for user login
  */
-export interface SetListDto {
-  id: DbSet["id"];
-  externalId: DbSet["external_id"];
-  name: DbSet["name"];
-  series: DbSet["series"];
-  releaseDate: DbSet["release_date"];
-  totalCards: DbSet["total_cards"];
-  symbolUrl: DbSet["symbol_url"];
-  logoUrl: DbSet["logo_url"];
-  tcgType: Pick<DbTcgType, "id" | "name" | "code">;
+export interface LoginRequestDTO {
+  email: string;
+  password: string;
 }
 
 /**
- * Set DTO (Detail View) - represents a card set/expansion with full details
- * GET /api/sets/:setId
+ * User information returned in authentication responses
+ * Based on Supabase Auth User model
  */
-export interface SetDetailDto extends SetListDto {
-  createdAt: DbSet["created_at"];
-  updatedAt: DbSet["updated_at"];
+export interface AuthUserDTO {
+  id: string;
+  email: string;
 }
 
 /**
- * Card Price DTO - represents market price data for a card
+ * Session information returned in authentication responses
+ * Based on Supabase Auth Session model
  */
-export interface CardPriceDto {
-  id: DbCardPrice["id"];
-  price: DbCardPrice["price"];
-  currency: DbCardPrice["currency"];
-  priceType: DbCardPrice["price_type"];
-  lastUpdated: DbCardPrice["fetched_at"];
-  source: Pick<DbPriceSource, "id" | "name" | "code">;
+export interface AuthSessionDTO {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
 }
 
 /**
- * Card DTO (List View) - represents a card in list/search views
- * GET /api/cards
+ * Complete authentication response including user and session data
  */
-export interface CardListDto {
-  id: DbCard["id"];
-  externalId: DbCard["external_id"];
-  name: DbCard["name"];
-  cardNumber: DbCard["card_number"];
-  imageSmallUrl: DbCard["image_small_url"];
-  imageLargeUrl: DbCard["image_large_url"];
-  supertype: DbCard["supertype"];
-  subtypes: DbCard["subtypes"];
-  types: DbCard["types"];
-  hp: DbCard["hp"];
-  rarity: Pick<DbRarity, "id" | "name" | "code"> | null;
-  set: Pick<DbSet, "id" | "name" | "series" | "symbol_url">;
-  marketPrice: CardPriceDto | null;
+export interface AuthResponseDTO {
+  user: AuthUserDTO;
+  session: AuthSessionDTO;
 }
 
 /**
- * Card Attack DTO - represents a card attack/move
+ * Request body for password reset
  */
-export interface CardAttackDto {
+export interface ResetPasswordRequestDTO {
+  email: string;
+}
+
+/**
+ * Request body for updating password
+ */
+export interface UpdatePasswordRequestDTO {
+  password: string;
+}
+
+// =============================================================================
+// PROFILE DTOs
+// =============================================================================
+
+/**
+ * User profile response
+ * Derived from: Tables<'profiles'>
+ */
+export type ProfileDTO = Tables<"profiles">;
+
+/**
+ * Request body for updating user profile
+ * Derived from: Partial pick of profile updatable fields
+ */
+export interface UpdateProfileRequestDTO {
+  onboarding_completed?: boolean;
+  favorite_type?: string | null;
+  favorite_set?: string | null;
+}
+
+// =============================================================================
+// SET DTOs
+// =============================================================================
+
+/**
+ * Card set response for list views
+ * Derived from: Tables<'sets'> with selected fields
+ */
+export type SetDTO = Omit<Tables<"sets">, "created_at" | "updated_at" | "last_synced_at" | "tcg_type">;
+
+/**
+ * Detailed card set response including sync metadata
+ * Derived from: Tables<'sets'> with tcg_type excluded
+ */
+export type SetDetailDTO = Omit<Tables<"sets">, "tcg_type">;
+
+/**
+ * Set completion progress for a specific user
+ * Computed from set data and user collection
+ */
+export interface SetCompletionDTO {
+  set_id: string;
+  set_name: string;
+  total_cards: number;
+  owned_cards: number;
+  completion_percentage: number;
+}
+
+// =============================================================================
+// CARD DTOs
+// =============================================================================
+
+/**
+ * Card response for list views
+ * Derived from: Tables<'cards'> with selected fields
+ */
+export type CardDTO = Omit<Tables<"cards">, "created_at" | "updated_at" | "last_synced_at" | "tcg_type">;
+
+/**
+ * Detailed card response including set information and sync metadata
+ * Derived from: Tables<'cards'> + nested SetDTO
+ */
+export interface CardDetailDTO extends Omit<Tables<"cards">, "tcg_type"> {
+  set: SetDTO;
+}
+
+/**
+ * Query parameters for card search and filtering
+ */
+export interface CardSearchQueryDTO {
+  page?: number;
+  limit?: number;
+  sort?: "name" | "card_number" | "rarity";
+  order?: "asc" | "desc";
+  search?: string;
+  set_id?: string;
+  types?: string;
+  rarity?: string;
+}
+
+// =============================================================================
+// USER CARDS (COLLECTION) DTOs
+// =============================================================================
+
+/**
+ * User collection entry response
+ * Derived from: Tables<'user_cards'> excluding user_id (implied by auth context)
+ */
+export type UserCardDTO = Omit<Tables<"user_cards">, "user_id">;
+
+/**
+ * User collection entry with nested card information
+ * Derived from: UserCardDTO + CardDTO
+ */
+export interface UserCardWithCardDTO extends UserCardDTO {
+  card: CardDTO;
+}
+
+/**
+ * Request body for adding a card to collection
+ * Derived from: TablesInsert<'user_cards'> with required fields
+ */
+export interface AddUserCardRequestDTO {
+  card_id: string;
+  variant: string;
+  quantity?: number;
+}
+
+/**
+ * Request body for updating a collection entry
+ * Derived from: Partial pick of user_cards updatable fields
+ */
+export interface UpdateUserCardRequestDTO {
+  quantity?: number;
+  wishlisted?: boolean;
+}
+
+/**
+ * Query parameters for collection filtering and pagination
+ */
+export interface CollectionQueryDTO {
+  page?: number;
+  limit?: number;
+  sort?: "name" | "created_at" | "quantity";
+  order?: "asc" | "desc";
+  set_id?: string;
+  variant?: string;
+  wishlisted?: boolean;
+  search?: string;
+}
+
+// =============================================================================
+// COLLECTION STATISTICS DTOs
+// =============================================================================
+
+/**
+ * Most collected set information
+ * Computed from user collection data
+ */
+export interface MostCollectedSetDTO {
+  id: string;
   name: string;
-  cost: string[];
-  damage: string;
-  text: string;
-  convertedEnergyCost: number;
+  owned: number;
+  total: number;
 }
 
 /**
- * Card Ability DTO - represents a card ability
+ * Overall collection statistics
+ * Computed from user collection data
  */
-export interface CardAbilityDto {
+export interface CollectionStatsDTO {
+  total_cards: number;
+  unique_cards: number;
+  wishlisted_count: number;
+  sets_with_cards: number;
+  most_collected_set: MostCollectedSetDTO | null;
+}
+
+/**
+ * Set completion statistics for a specific set
+ * Computed from set data and user collection
+ */
+export interface SetCompletionStatsDTO {
+  set_id: string;
+  set_name: string;
+  series: string | null;
+  total_cards: number;
+  owned_cards: number;
+  completion_percentage: number;
+}
+
+// =============================================================================
+// EXPORT DTOs
+// =============================================================================
+
+/**
+ * Row format for CSV export of collection
+ */
+export interface ExportCardRowDTO {
+  card_id: string;
   name: string;
-  text: string;
-  type: string;
+  set: string;
+  card_number: string;
+  rarity: string | null;
+  quantity: number;
+  variant: string;
+  wishlisted: boolean;
+}
+
+// =============================================================================
+// ANALYTICS DTOs
+// =============================================================================
+
+/**
+ * Request body for tracking analytics events
+ * Derived from: TablesInsert<'analytics_events'>
+ */
+export interface AnalyticsEventRequestDTO {
+  event_type: string;
+  event_data?: Record<string, unknown>;
 }
 
 /**
- * Card Weakness/Resistance DTO - represents a type advantage/disadvantage
+ * Analytics event response
+ * Derived from: Tables<'analytics_events'> with selected fields
  */
-export interface CardTypeEffectDto {
-  type: string;
-  value: string;
+export type AnalyticsEventResponseDTO = Pick<Tables<"analytics_events">, "id" | "event_type" | "created_at">;
+
+// =============================================================================
+// COMMON / UTILITY DTOs
+// =============================================================================
+
+/**
+ * Pagination metadata for list responses
+ */
+export interface PaginationDTO {
+  page: number;
+  limit: number;
+  total_items: number;
+  total_pages: number;
 }
 
 /**
- * Card DTO (Detail View) - represents a card with full details
- * GET /api/cards/:cardId
+ * Base query parameters for pagination and sorting
  */
-export interface CardDetailDto extends CardListDto {
-  artist: DbCard["artist"];
-  flavorText: DbCard["flavor_text"];
-  evolvesFrom: DbCard["evolves_from"];
-  retreatCost: DbCard["retreat_cost"];
-  rules: DbCard["rules"];
-  abilities: CardAbilityDto[] | null;
-  attacks: CardAttackDto[] | null;
-  weaknesses: CardTypeEffectDto[] | null;
-  resistances: CardTypeEffectDto[] | null;
-  createdAt: DbCard["created_at"];
-  updatedAt: DbCard["updated_at"];
+export interface PaginationQueryDTO {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: "asc" | "desc";
 }
 
 /**
- * Card Search Result DTO - optimized result for search endpoint
- * GET /api/cards/search
+ * Generic paginated response wrapper
+ * @template T - The type of data items in the response
  */
-export interface CardSearchResultDto {
-  id: DbCard["id"];
-  name: DbCard["name"];
-  cardNumber: DbCard["card_number"];
-  imageSmallUrl: DbCard["image_small_url"];
-  setName: DbSet["name"];
-  setSeries: DbSet["series"];
-  setSymbolUrl: DbSet["symbol_url"];
-  tcgTypeName: DbTcgType["name"];
+export interface PaginatedResponseDTO<T> {
+  data: T[];
+  pagination: PaginationDTO;
 }
 
 /**
- * Rarity DTO - represents a card rarity level
- * GET /api/rarities
+ * Error response structure
  */
-export interface RarityDto {
-  id: DbRarity["id"];
-  code: DbRarity["code"];
-  name: DbRarity["name"];
-  sortOrder: DbRarity["sort_order"];
-  tcgTypeId: DbRarity["tcg_type_id"];
-}
-
-/**
- * Condition DTO - represents a card condition grade
- * GET /api/conditions
- */
-export interface ConditionDto {
-  id: DbCondition["id"];
-  code: DbCondition["code"];
-  name: DbCondition["name"];
-  description: string;
-  sortOrder: DbCondition["sort_order"];
-}
-
-/**
- * Grading Company DTO - represents a professional card grading company
- * GET /api/grading-companies
- */
-export interface GradingCompanyDto {
-  id: DbGradingCompany["id"];
-  code: DbGradingCompany["code"];
-  name: DbGradingCompany["name"];
-  minGrade: DbGradingCompany["min_grade"];
-  maxGrade: DbGradingCompany["max_grade"];
-}
-
-/**
- * Collection Entry DTO (List View) - represents a card in user's collection
- * GET /api/collection
- */
-export interface CollectionEntryListDto {
-  id: DbCollectionEntry["id"];
-  quantity: DbCollectionEntry["quantity"];
-  condition: Pick<DbCondition, "id" | "name" | "code">;
-  gradingCompany: Pick<DbGradingCompany, "id" | "name" | "code"> | null;
-  gradeValue: DbCollectionEntry["grade_value"];
-  purchasePrice: DbCollectionEntry["purchase_price"];
-  notes: DbCollectionEntry["notes"];
-  dateAdded: DbCollectionEntry["created_at"];
-  lastUpdated: DbCollectionEntry["updated_at"];
-  card: CardListDto;
-}
-
-/**
- * Collection Entry DTO (Detail View) - represents a collection entry with full card details
- * GET /api/collection/:entryId
- */
-export interface CollectionEntryDetailDto extends Omit<CollectionEntryListDto, "card"> {
-  card: CardDetailDto;
-  estimatedValue: number;
-}
-
-/**
- * Collection Summary DTO - represents aggregate collection statistics
- * GET /api/collection/summary
- */
-export interface CollectionSummaryDto {
-  totalEntries: number;
-  totalCards: number;
-  totalMarketValue: number;
-  totalPurchaseCost: number;
-  totalProfitLoss: number;
-  topSets: {
-    setId: string;
-    setName: string;
-    ownedUniqueCards: number;
-    ownedTotalCards: number;
-    setTotalCards: number;
-    completionPercentage: number;
-  }[];
-  valueByCondition: {
-    conditionId: number;
-    conditionName: string;
-    totalValue: number;
-    cardCount: number;
-  }[];
-  gradedCardsValue: number;
-  ungradedCardsValue: number;
-}
-
-/**
- * User List DTO (without entries) - represents a custom user list
- * GET /api/lists
- */
-export interface UserListDto {
-  id: DbUserList["id"];
-  name: DbUserList["name"];
-  sortOrder: DbUserList["sort_order"];
-  entryCount: number;
-  totalValue: number;
-  createdAt: DbUserList["created_at"];
-  updatedAt: DbUserList["updated_at"];
-}
-
-/**
- * User List with Entries DTO - represents a list with its collection entries
- * GET /api/lists/:listId
- */
-export interface UserListWithEntriesDto extends UserListDto {
-  entries: CollectionEntryListDto[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    totalPages: number;
-  };
-}
-
-/**
- * User Profile DTO - represents user profile information
- * GET /api/profile
- */
-export interface UserProfileDto {
-  id: DbUserProfile["id"];
-  displayName: DbUserProfile["display_name"];
-  avatarUrl: DbUserProfile["avatar_url"];
-  isAdmin: DbUserProfile["is_admin"];
-  createdAt: DbUserProfile["created_at"];
-  updatedAt: DbUserProfile["updated_at"];
-}
-
-/**
- * Import Job DTO (List View) - represents a data import job
- * GET /api/admin/import-jobs
- */
-export interface ImportJobListDto {
-  id: DbImportJob["id"];
-  jobType: DbImportJob["job_type"];
-  status: DbImportJob["status"];
-  totalRecords: DbImportJob["total_records"];
-  successCount: DbImportJob["success_count"];
-  failureCount: DbImportJob["failure_count"];
-  createdAt: DbImportJob["created_at"];
-  startedAt: DbImportJob["started_at"];
-  completedAt: DbImportJob["completed_at"];
-}
-
-/**
- * Import Job DTO (Detail View) - represents a job with full error details
- * GET /api/admin/import-jobs/:jobId
- */
-export interface ImportJobDetailDto extends ImportJobListDto {
-  errorDetails: DbImportJob["error_details"];
-  triggeredBy: DbImportJob["triggered_by"];
-}
-
-/**
- * Admin Statistics DTO - represents platform-wide statistics
- * GET /api/admin/statistics
- */
-export interface AdminStatisticsDto {
-  users: {
-    total: number;
-    activeLastWeek: number;
-    activeLastMonth: number;
-    newThisMonth: number;
-  };
-  collections: {
-    totalEntries: number;
-    totalCards: number;
-    totalMarketValue: number;
-    averageCollectionSize: number;
-  };
-  catalog: {
-    totalSets: number;
-    totalCards: number;
-    lastPriceUpdate: string;
-  };
-  imports: {
-    lastSuccessfulImport: string;
-    pendingJobs: number;
-    failedJobsLast24h: number;
-  };
-}
-
-// ============================================================================
-// Command Models (Request Bodies)
-// ============================================================================
-
-/**
- * Add to Collection Command - request body for adding a card to collection
- * POST /api/collection
- */
-export interface AddToCollectionCommand {
-  cardId: DbCollectionEntry["card_id"];
-  conditionId: DbCollectionEntry["condition_id"];
-  quantity: DbCollectionEntry["quantity"];
-  gradingCompanyId?: DbCollectionEntry["grading_company_id"];
-  gradeValue?: DbCollectionEntry["grade_value"];
-  purchasePrice?: DbCollectionEntry["purchase_price"];
-  notes?: DbCollectionEntry["notes"];
-}
-
-/**
- * Update Collection Entry Command - request body for updating a collection entry
- * PATCH /api/collection/:entryId
- */
-export interface UpdateCollectionEntryCommand {
-  conditionId?: DbCollectionEntry["condition_id"];
-  quantity?: DbCollectionEntry["quantity"];
-  gradingCompanyId?: DbCollectionEntry["grading_company_id"] | null;
-  gradeValue?: DbCollectionEntry["grade_value"] | null;
-  purchasePrice?: DbCollectionEntry["purchase_price"];
-  notes?: DbCollectionEntry["notes"];
-}
-
-/**
- * Create List Command - request body for creating a custom list
- * POST /api/lists
- */
-export interface CreateListCommand {
-  name: DbUserList["name"];
-}
-
-/**
- * Update List Command - request body for updating a list
- * PATCH /api/lists/:listId
- */
-export interface UpdateListCommand {
-  name?: DbUserList["name"];
-  sortOrder?: DbUserList["sort_order"];
-}
-
-/**
- * Add Entries to List Command - request body for adding collection entries to a list
- * POST /api/lists/:listId/entries
- */
-export interface AddEntriesToListCommand {
-  collectionEntryIds: string[];
-}
-
-/**
- * Update Profile Command - request body for updating user profile
- * PATCH /api/profile
- */
-export interface UpdateProfileCommand {
-  displayName?: DbUserProfile["display_name"];
-  avatarUrl?: DbUserProfile["avatar_url"] | null;
-}
-
-/**
- * Register Command - request body for user registration
- * POST /api/auth/register
- */
-export interface RegisterCommand {
-  email: string;
-  password: string;
-}
-
-/**
- * Login Command - request body for user login
- * POST /api/auth/login
- */
-export interface LoginCommand {
-  email: string;
-  password: string;
-}
-
-/**
- * Forgot Password Command - request body for password reset request
- * POST /api/auth/forgot-password
- */
-export interface ForgotPasswordCommand {
-  email: string;
-}
-
-/**
- * Reset Password Command - request body for password reset
- * POST /api/auth/reset-password
- */
-export interface ResetPasswordCommand {
-  token: string;
-  password: string;
-}
-
-/**
- * Trigger Import Job Command - request body for triggering an import job
- * POST /api/admin/import-jobs
- */
-export interface TriggerImportJobCommand {
-  jobType: DbImportJob["job_type"];
-}
-
-// ============================================================================
-// Common Response Wrappers
-// ============================================================================
-
-/**
- * Standard API success response wrapper
- */
-export interface ApiSuccessResponse<T> {
-  data: T;
-  message?: string;
-}
-
-/**
- * Standard API error response wrapper
- */
-export interface ApiErrorResponse {
+export interface ErrorResponseDTO {
   error: {
     code: string;
     message: string;
     details?: Record<string, unknown>;
-    timestamp: string;
   };
 }
 
 /**
- * Paginated response wrapper
+ * Standard success message response
  */
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalItems: number;
-    totalPages: number;
-  };
+export interface MessageResponseDTO {
+  message: string;
 }
 
-// ============================================================================
-// Query Parameter Types
-// ============================================================================
+// =============================================================================
+// TYPE GUARDS AND VALIDATORS
+// =============================================================================
 
 /**
- * Common pagination query parameters
+ * Valid card variant types
  */
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-}
+export type CardVariant = "normal" | "reverse" | "holo" | "firstEdition";
 
 /**
- * Common sorting query parameters
+ * Valid sort orders
  */
-export interface SortingParams {
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-}
+export type SortOrder = "asc" | "desc";
 
 /**
- * Query parameters for GET /api/sets
+ * Supported analytics event types
  */
-export interface GetSetsQueryParams extends PaginationParams, SortingParams {
-  tcgTypeId?: number;
-  series?: string;
-  search?: string;
-}
-
-/**
- * Query parameters for GET /api/cards
- */
-export interface GetCardsQueryParams extends PaginationParams, SortingParams {
-  setId?: string;
-  tcgTypeId?: number;
-  rarityId?: number;
-  cardType?: string;
-  priceMin?: number;
-  priceMax?: number;
-  search?: string;
-}
-
-/**
- * Query parameters for GET /api/cards/search
- */
-export interface SearchCardsQueryParams {
-  q: string;
-  limit?: number;
-}
-
-/**
- * Query parameters for GET /api/rarities
- */
-export interface GetRaritiesQueryParams {
-  tcgTypeId?: number;
-}
-
-/**
- * Query parameters for GET /api/collection
- */
-export interface GetCollectionQueryParams extends PaginationParams, SortingParams {
-  listId?: string;
-  setId?: string;
-  conditionId?: number;
-  search?: string;
-}
-
-/**
- * Query parameters for GET /api/admin/import-jobs
- */
-export interface GetImportJobsQueryParams extends PaginationParams {
-  status?: "pending" | "running" | "completed" | "failed";
-}
+export type AnalyticsEventType =
+  | "user_registered"
+  | "user_login"
+  | "card_added"
+  | "card_removed"
+  | "card_viewed"
+  | "search_performed"
+  | "collection_exported";
