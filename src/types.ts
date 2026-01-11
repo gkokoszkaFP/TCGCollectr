@@ -68,6 +68,17 @@ export interface UpdatePasswordRequestDTO {
   password: string;
 }
 
+/**
+ * Command model for user registration
+ * Encapsulates all data needed for registration processing
+ */
+export interface RegisterCommand {
+  email: string;
+  password: string;
+  ipAddress: string;
+  userAgent?: string;
+}
+
 // =============================================================================
 // PROFILE DTOs
 // =============================================================================

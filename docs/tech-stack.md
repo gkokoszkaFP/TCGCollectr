@@ -1,19 +1,21 @@
-Frontend - Astro z React dla komponentów interaktywnych:
+# Tech Stack
 
-- Astro 5 pozwala na tworzenie szybkich, wydajnych stron i aplikacji z minimalną ilością JavaScript
-- React 19 zapewni interaktywność tam, gdzie jest potrzebna
-- TypeScript 5 dla statycznego typowania kodu i lepszego wsparcia IDE
-- Tailwind 4 pozwala na wygodne stylowanie aplikacji
-- Shadcn/ui zapewnia bibliotekę dostępnych komponentów React, na których oprzemy UI
+## Frontend – Astro with React for interactive components
 
-Backend - Supabase jako kompleksowe rozwiązanie backendowe:
+- **Astro 5** enables building fast, high-performance websites and applications with minimal JavaScript
+- **React 19** provides interactivity where it is needed
+- **TypeScript 5** for static typing and improved IDE support
+- **Tailwind CSS 4** allows for convenient and efficient application styling
+- **shadcn/ui** provides a library of accessible React components that will be used as the foundation of the UI
 
-- Zapewnia bazę danych PostgreSQL
-- Zapewnia SDK w wielu językach, które posłużą jako Backend-as-a-Service
-- Jest rozwiązaniem open source, które można hostować lokalnie lub na własnym serwerze
-- Posiada wbudowaną autentykację użytkowników
+## Backend – Supabase as a comprehensive backend solution
 
-CI/CD i Hosting:
+- Provides a **PostgreSQL** database
+- Offers SDKs in multiple languages, serving as a **Backend-as-a-Service**
+- Is **open source** and can be hosted locally or on your own server
+- Includes built-in **user authentication**
 
-- Github Actions do tworzenia pipeline’ów CI/CD
-- DigitalOcean do hostowania aplikacji za pośrednictwem obrazu docker
+## CI/CD and Hosting
+
+- **GitHub Actions** for building CI/CD pipelines
+- **DigitalOcean** for hosting the application using a **Docker image**

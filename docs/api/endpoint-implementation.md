@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-{{endpoint-implementation-plan}} <- add reference to endpoint implementation plan (e.g., @generations-endpoint-implementation-plan.md)
+**[post-auth-register-implementation-plan.md](./post-auth-register-implementation-plan.md)**
 </implementation_plan>
 
 <types>
