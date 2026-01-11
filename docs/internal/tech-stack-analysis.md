@@ -13,8 +13,7 @@ Backend i bazy danych:
 CI/CD i Hosting:
 
 - Github Actions for CI/CD pipeline
-- Azure Static Web Apps for frontend hosting
-- Supabase Cloud for backend (database, auth, edge functions)
+- Supabase Cloud for backend (database, auth, edge functions) and docker image for local.
   </tech-stack>
 
 Conduct a critical but objective analysis of whether <tech-stack> adequately addresses the needs in @prd.md. Consider the following questions:

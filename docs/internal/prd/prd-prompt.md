@@ -8,19 +8,14 @@ Please carefully review the following information:
 
 ## Main problem
 
-Storing and checking your TCG cards for personal use is cumbersome – having sufficiently comprehensive but not overwhelming information about your cards. The application will allow the user to add their cards and provide information about the cards.
+Storing and checking your TCG cards for personal use is cumbersome – having sufficiently comprehensive but not overwhelming information about your cards. The application will allow the user to search for cards and add them to thier collection with basic information.
 
 ## Minimum viable features
 
 - Adding, deleting, reading, and browsing their own cards.
 - A simple user account system to store cards.
-- A user profile page where the user can easily access their card collections.
-- Support only for Pokémon cards – with the possibility to expand to other TCGs in the future.
-- Basic information such as:
-  - price
-  - card information
-- Have ability to import price and card info from https://tcgcsv.com/#daily-updates (csv format) to fill database with cards data (basic metadata and price).
-- Use of free APIs to fetch card information (metadata, price) - pokemontcg.io - complementary to csv data dump (for example show more data on specific card).
+- Support only for Pokémon cards
+- Card information (for more info get TCGDex API context7 MCP)
 - Browsing any Pokémon cards without needing to add them to their collection.
 
 ## What is NOT in the scope of MVP
@@ -30,6 +25,8 @@ Storing and checking your TCG cards for personal use is cumbersome – having su
 - Advanced card price and trend analysis
 - Scanning cards with the camera (OCR) as an alternative to adding cards
 - Redirecting to websites selling cards (e.g., eBay, Amazon, etc.)
+- Offline data dump import from TCGCSV
+- Administration tasks/dashboard
 
 ## Success criteria
 

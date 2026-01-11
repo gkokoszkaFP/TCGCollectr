@@ -4,7 +4,7 @@ This project uses the migrations provided by the Supabase CLI.
 
 Create migrations for the following db-plan:
 <db-plan>
-**[db-plan.md](../db-plan.md)**
+**[db-plan.md](../../db-plan.md)**
 </db-plan>
 
 ## Creating a migration file
