@@ -239,6 +239,26 @@ Authorization: Bearer <access_token>
 }
 ```
 
+### Addendum: On-demand seeding behavior (MVP)
+
+For GET endpoints that return card or set metadata (for example: `GET /api/sets/:setId`, `GET /api/cards/:cardId`, `GET /api/sets`), the MVP implementation MUST follow this on-demand seeding flow:
+
+1. Attempt a read from the local database using the public/anon Supabase client injected by middleware.
+2. If the resource is not found, make a synchronous request to the TCGDex API (`TCGDEX_URL`) to fetch the resource.
+
+- If TCGDex returns 404, return 404 to the client.
+- If TCGDex returns a valid payload, upsert the record into the appropriate table (`sets` or `cards`) using a server-only Supabase service-role client (`SUPABASE_SERVICE_KEY`).
+
+3. Return the (now-cached) row to the client with headers: `Cache-Control: public, max-age=86400, stale-while-revalidate=60`.
+
+Requirements and notes:
+
+- Keep `SUPABASE_SERVICE_KEY` strictly server-side (CI/hosting secrets). Never expose it to clients.
+- Validate path params (Zod recommended) before DB or upstream calls.
+- Apply per-endpoint rate limiting via middleware to protect upstream TCGDex and to reduce enumeration risk.
+- Standardize error responses and avoid leaking upstream or DB internals.
+- This on-demand approach replaces background syncing for MVP; introduce background jobs later to proactively refresh stale records and reduce first-request latency.
+
 **Error Responses:**
 
 | Status | Code         | Message           |

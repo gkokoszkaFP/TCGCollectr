@@ -58,6 +58,11 @@ Create the go-to solution for Pokémon TCG collectors who want a straightforward
 
 - **[TCGDex API](https://www.tcgdex.net)** - Free, open-source Pokémon TCG card database
 
+## Developer References
+
+- **TCGdex API (Context7):** [https://context7.com/websites/tcgdex_dev](https://context7.com/websites/tcgdex_dev)
+  - Use this link for up-to-date TCGdex API documentation, asset URL rules, and integration details.
+
 ### CI/CD & Hosting
 
 - **GitHub Actions** - Automated CI/CD pipelines

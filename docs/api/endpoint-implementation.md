@@ -3,7 +3,7 @@ Your task is to implement a REST API endpoint based on the provided implementati
 First, carefully review the provided implementation plan:
 
 <implementation_plan>
-**[patch-profile-implementation-plan.md](./patch-profile-implementation-plan.md)**
+**[get-set-implementation-plan.md](./get-set-implementation-plan.md)**
 </implementation_plan>
 
 <types>
@@ -17,7 +17,7 @@ First, carefully review the provided implementation plan:
 </implementation_rules>
 
 <implementation_approach>
-Implement a maximum of 3 steps from the implementation plan, briefly summarize what you've done, and describe the plan for the next 2 actions - stop work at this point and wait for my feedback. **Note**: Integration tests (Jest/Playwright) are NOT required.
+Implement a maximum of 3 steps from the implementation plan, briefly summarize what you've done, and describe the plan for the next 2 actions - stop work at this point and wait for my feedback. **Note**: Integration tests (Jest/Playwright) are NOT required. **Manual endpoint testing will be performed by the user, not by the implementer.**
 </implementation_approach>
 
 Now perform the following steps to implement the REST API endpoint:
@@ -51,6 +51,12 @@ Now perform the following steps to implement the REST API endpoint:
    - Validate header requirements and security measures
    - Minimal cURL commands documented in [docs/tests/postman-curls.md](../tests/postman-curls.md) for direct Postman import
    - **Note**: Integration tests (Jest/Playwright) are not required for this endpoint and will not be created as part of this implementation.
+
+   Important: For endpoints that return card or set metadata, the implementation MUST document and implement the MVP on-demand seeding flow described in:
+   - `docs/prd.md` (section: "MVP Data Sync Strategy (TCGDex)")
+   - `docs/api-plan.md` (section: "Addendum: On-demand seeding behavior (MVP)")
+
+   Endpoint implementation plans should explicitly state whether they follow the on-demand seed-on-read approach or rely on background sync (background sync is not part of MVP unless explicitly added). The plan must list required environment variables (`TCGDEX_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`) and any rate-limiting or security controls required to protect upstream APIs.
 
 5. Documentation:
    - Add clear comments to explain complex logic or important decisions

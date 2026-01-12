@@ -98,6 +98,16 @@ Card display (tiered information):
 - Essential (default): name, set, card number, rarity, image
 - Expanded (on-demand): HP, attacks, weaknesses, retreat cost, evolution info
 
+### MVP Data Sync Strategy (TCGDex)
+
+For the MVP we will not run background jobs or scheduled syncs. Instead, data for sets and cards will be populated on-demand by the public API using the following pattern:
+
+- Read from the local database first (fast path).
+- If a requested set or card is missing, the API will fetch it synchronously from the TCGDex API and upsert the record into the local database before returning the response (seed-on-read).
+- Required environment variables: `TCGDEX_URL`, `SUPABASE_URL`, and a server-only `SUPABASE_SERVICE_KEY` for upserts.
+- Tradeoffs: first request for an uncached resource may be slower; implement lightweight rate limiting to prevent abuse and enumeration; ensure service keys remain server-side only.
+- Rationale: avoids operational overhead of background jobs for MVP while ensuring the DB eventually contains requested resources and supports offline viewing.
+
 ### FR-03: Collection Management
 
 | Attribute | Details                  |
